@@ -1,0 +1,25 @@
+# Test profili: bellek içi H2, disk yok.
+spring:
+  datasource:
+    url: jdbc:h2:mem:beautysalonapp-test;DB_CLOSE_DELAY=-1;MODE=LEGACY
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  flyway:
+    locations: classpath:db/migration/common,classpath:db/migration/h2
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+
+server:
+  port: 0
+
+beautysalonapp:
+  data-dir: ./target/test-run-data
+  licensing:
+    public-key-base64: ""
+    heartbeat-enabled: false
+  security:
+    bootstrap-admin-username: admin
+    bootstrap-admin-password: admin123
