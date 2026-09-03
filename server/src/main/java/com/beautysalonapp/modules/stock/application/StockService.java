@@ -304,6 +304,34 @@ public class StockService implements StockPort {
                 .orElse(BigDecimal.ZERO);
     }
 
+    @Override
+    public void reverseByDoc(String docType, String docRef, String reason) {
+        List<StockMovement> original = movements.findByDocTypeAndDocRef(docType, docRef);
+        int i = 0;
+        for (StockMovement m : original) {
+            MovementDirection opposite = m.getDirection() == MovementDirection.IN
+                    ? MovementDirection.OUT : MovementDirection.IN;
+            // Base miktarı doğrudan geri al (girilen birim = base, factor 1 varsay: base_qty zaten base)
+            record(m.getDate(), m.getItemId(), m.getWarehouseId(), opposite,
+                    baseUnitIdFor(m.getItemId()), m.getBaseQty(),
+                    opposite == MovementDirection.IN ? m.getUnitCost() : null,
+                    "REVERSAL", docRef, "rev-" + (i++) + "-" + m.getId(),
+                    "İptal: " + (reason == null ? "" : reason));
+        }
+    }
+
+    private Long baseUnitIdFor(long itemId) {
+        return itemUnits.findByItemIdAndIsBaseTrue(itemId)
+                .map(ItemUnit::getUnitId)
+                .orElseGet(() -> getItem(itemId).getBaseUnitId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long baseUnitId(long itemId) {
+        return baseUnitIdFor(itemId);
+    }
+
     // --- yardımcılar ---------------------------------------------------
 
     private BigDecimal factorFor(long itemId, long unitId) {

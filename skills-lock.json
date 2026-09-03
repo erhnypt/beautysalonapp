@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "high-stakes-decisions": {
+      "source": "refoundai/lenny-skills",
+      "sourceType": "github",
+      "skillPath": "skills/high-stakes-decisions/SKILL.md",
+      "computedHash": "39018ba14b6cd7b741996780c6f4bec4e7a52ce8368a433f93d340f9516e06a3"
+    }
+  }
+}

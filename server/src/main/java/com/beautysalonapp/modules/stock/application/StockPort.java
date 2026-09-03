@@ -16,6 +16,9 @@ public interface StockPort {
     /** Sarf (hizmet tüketimi) deposu — randevu {@code GELDI} sarfı buradan çıkar. */
     long consumptionWarehouseId();
 
+    /** Ürünün base birim id'si (fatura satırında birim verilmediğinde). */
+    long baseUnitId(long itemId);
+
     /** Çıkış (satış, randevu sarfı). Base miktar {@code enteredQty * factor} olarak hesaplanır. */
     void issue(StockCommand cmd);
 
@@ -23,6 +26,9 @@ public interface StockPort {
     void receive(StockCommand cmd);
 
     BigDecimal onHandBase(long itemId, long warehouseId);
+
+    /** Belgeye ait tüm stok hareketlerini ters yönlü hareketlerle geri alır (fatura iptali). */
+    void reverseByDoc(String docType, String docRef, String reason);
 
     record BarcodeResolution(long itemId, String itemName, long unitId, String unitCode, BigDecimal factor) {}
 
