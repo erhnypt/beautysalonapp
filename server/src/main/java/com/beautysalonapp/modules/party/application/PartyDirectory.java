@@ -17,5 +17,14 @@ public interface PartyDirectory {
     /** Verilen türde yeni bir taraf oluşturur ve NORMAL/TRY hesabını açar (ör. personel kaydı). */
     PartyRef createBasic(PartyType type, String title);
 
+    /** Bildirim modülü için: çözülmüş iletişim + izin bilgisi. */
+    java.util.Optional<PartyContact> contact(long partyId);
+
     record PartyRef(long id, String code, PartyType type, String title, boolean anonymized) {}
+
+    record PartyContact(
+            long id, String displayName, String phone, String email,
+            boolean smsConsent, boolean emailConsent, String iysStatus, boolean anonymized,
+            java.time.LocalDate birthDate, java.time.LocalDate weddingAnniversary) {
+    }
 }

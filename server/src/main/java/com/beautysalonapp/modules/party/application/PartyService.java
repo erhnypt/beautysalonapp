@@ -178,6 +178,16 @@ public class PartyService implements PartyDirectory {
         return toRef(create(type, null, title, null, null, null, null, null, null));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<PartyContact> contact(long partyId) {
+        return parties.findById(partyId).map(p -> new PartyContact(
+                p.getId(), p.getTitle(), p.getPhone(), p.getEmail(),
+                p.isSmsConsent(), p.isEmailConsent(),
+                p.getIysStatus() == null ? "BILINMIYOR" : p.getIysStatus().name(),
+                p.isAnonymized(), p.getBirthDate(), p.getWeddingAnniversary()));
+    }
+
     private PartyRef toRef(Party p) {
         return new PartyRef(p.getId(), p.getCode(), p.getType(), p.getTitle(), p.isAnonymized());
     }

@@ -77,6 +77,50 @@ public class AppProperties {
     @NestedConfigurationProperty
     private Backup backup = new Backup();
 
+    @NestedConfigurationProperty
+    private Notification notification = new Notification();
+
+    public static class Notification {
+        private boolean enabled = true;
+        /** NOOP | HTTP */
+        private String smsProvider = "NOOP";
+        private String smsHttpEndpoint = "";
+        private String smsApiKey = "";
+        private String smsSenderName = "";
+        private String emailFrom = "";
+        /** Gün sonu raporu ve sistem uyarılarının gideceği yönetici e-postası. */
+        private String managerEmail = "";
+        /** Randevu hatırlatması kaç saat önce gönderilsin. */
+        private int reminderHours = 24;
+        /** Borç bildirimi eşiği (TL). */
+        private java.math.BigDecimal debtThreshold = new java.math.BigDecimal("250");
+        private int maxAttempts = 3;
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getSmsProvider() { return smsProvider; }
+        public void setSmsProvider(String v) { this.smsProvider = v; }
+        public String getSmsHttpEndpoint() { return smsHttpEndpoint; }
+        public void setSmsHttpEndpoint(String v) { this.smsHttpEndpoint = v; }
+        public String getSmsApiKey() { return smsApiKey; }
+        public void setSmsApiKey(String v) { this.smsApiKey = v; }
+        public String getSmsSenderName() { return smsSenderName; }
+        public void setSmsSenderName(String v) { this.smsSenderName = v; }
+        public String getEmailFrom() { return emailFrom; }
+        public void setEmailFrom(String v) { this.emailFrom = v; }
+        public String getManagerEmail() { return managerEmail; }
+        public void setManagerEmail(String v) { this.managerEmail = v; }
+        public int getReminderHours() { return reminderHours; }
+        public void setReminderHours(int v) { this.reminderHours = v; }
+        public java.math.BigDecimal getDebtThreshold() { return debtThreshold; }
+        public void setDebtThreshold(java.math.BigDecimal v) { this.debtThreshold = v; }
+        public int getMaxAttempts() { return maxAttempts; }
+        public void setMaxAttempts(int v) { this.maxAttempts = v; }
+    }
+
+    public Notification getNotification() { return notification; }
+    public void setNotification(Notification notification) { this.notification = notification; }
+
     public static class Backup {
         /** Yedek klasörü. Kurulum dizininin İÇİNDE olmamalıdır (§11.2). */
         private String dir = "./run-data/backups";
