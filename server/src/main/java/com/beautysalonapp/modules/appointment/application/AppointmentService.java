@@ -21,6 +21,8 @@ import com.beautysalonapp.modules.party.application.PartyDirectory;
 import com.beautysalonapp.modules.party.application.PartyLedger;
 import com.beautysalonapp.modules.party.domain.AccountKind;
 import com.beautysalonapp.modules.party.domain.PartyType;
+import com.beautysalonapp.modules.staff.application.CommissionPort;
+import com.beautysalonapp.modules.staff.domain.CommissionScope;
 import com.beautysalonapp.modules.stock.application.StockPort;
 import com.beautysalonapp.settings.application.SettingService;
 import org.slf4j.Logger;
@@ -51,6 +53,7 @@ public class AppointmentService {
     private final StockPort stock;
     private final FinancePort finance;
     private final SessionConsumptionPort sessions;
+    private final CommissionPort commissions;
     private final SettingService settings;
     private final AuditService audit;
 
@@ -58,7 +61,8 @@ public class AppointmentService {
                               ResourceRepository resources, StaffShiftRepository shifts,
                               AppointmentRepository appointments, PartyDirectory partyDirectory,
                               PartyLedger partyLedger, StockPort stock, FinancePort finance,
-                              SessionConsumptionPort sessions, SettingService settings, AuditService audit) {
+                              SessionConsumptionPort sessions, CommissionPort commissions,
+                              SettingService settings, AuditService audit) {
         this.services = services;
         this.recipes = recipes;
         this.resources = resources;
@@ -69,6 +73,7 @@ public class AppointmentService {
         this.stock = stock;
         this.finance = finance;
         this.sessions = sessions;
+        this.commissions = commissions;
         this.settings = settings;
         this.audit = audit;
     }
@@ -242,8 +247,12 @@ public class AppointmentService {
             }
         }
 
-        // 3) Prim tahakkuku / sadakat puanı — Faz 4/6 hook noktası
-        log.debug("GELDI zinciri: prim/sadakat hook'ları henüz bağlı değil (appt {})", appt.getId());
+        // 3) Prim tahakkuku (hizmet primi) — sadakat puanı Faz 6'da bağlanacak
+        BigDecimal commissionBase = svc.getPrice() != null && svc.getPrice().signum() > 0
+                ? svc.getPrice() : appt.getPriceSnapshot();
+        commissions.accrue(new CommissionPort.AccrueCommand(appt.getStaffPartyId(),
+                CommissionScope.SERVICE, commissionBase, "APPOINTMENT", "APPT-" + appt.getId(),
+                LocalDate.now()));
 
         appt.setArrivedAt(Instant.now());
         appt.setChainDone(true);
