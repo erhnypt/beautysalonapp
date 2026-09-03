@@ -55,11 +55,11 @@ cd server && JAVA_HOME=/opt/homebrew/opt/openjdk@17 mvn verify
 | Faz 3 | Satış Sözleşmesi + Otomatik Taksitlendirme, Frondex Randevu | ✅ |
 | Faz 4 | Fatura (alış/satış/perakende/iade), Çek portföyü, POS mahsuplaşma, Personel + Prim | ✅ |
 | Faz 1 | Lisans sunucusu (ayrı repo/VPS), jpackage `.msi`/`.dmg` paketleme | ⏳ |
-| Faz 5 | Yedekleme motoru + doğrulama, Raporlama merkezi / dashboard | ⏳ |
+| Faz 5 | Yedekleme motoru (AES-GCM, GFS rotasyon, doğrulama, geri yükleme), Günlük Analiz dashboard | ✅ |
 | Faz 6 | SMS/e-posta bildirim (İYS kontrolü), Kartlı promosyon (PPOS) | ⏳ |
 | Faz 7 | Performans, güvenlik gözden geçirme, imzalama/notarization, pilot | ⏳ |
 
-**121 birim/entegrasyon testi yeşil.** Ana iş akışı uçtan uca çalışır: cari → randevu →
+**130 birim/entegrasyon testi yeşil.** Ana iş akışı uçtan uca çalışır: cari → randevu →
 `GELDI` (stok sarfı + hizmet bedeli cariye + prim tahakkuku) → tahsilat; sözleşme → taksit
 planı → taksit tahsilatı; fatura (KDV/indirim, stok + cari + kasa tek transaction) → çek/POS.
 Yol haritası: teknik planın 17. bölümü.

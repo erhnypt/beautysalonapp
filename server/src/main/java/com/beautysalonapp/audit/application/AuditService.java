@@ -32,8 +32,12 @@ public class AuditService {
         Long branchId = 1L;
         String ip = currentIp();
         repository.save(new AuditLog(actor, action, entityType,
-                entityId == null ? null : String.valueOf(entityId),
-                branchId, summary, detail, ip));
+                cap(entityId == null ? null : String.valueOf(entityId), 40),
+                branchId, cap(summary, 500), detail, ip));
+    }
+
+    private static String cap(String s, int max) {
+        return (s != null && s.length() > max) ? s.substring(0, max) : s;
     }
 
     public void record(String action, String entityType, Object entityId, String summary) {

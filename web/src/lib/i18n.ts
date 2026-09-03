@@ -20,6 +20,7 @@ export const t = {
     users: "Kullanıcılar",
     audit: "İşlem Kayıtları",
     license: "Lisans",
+    backup: "Yedekleme",
   },
 
   auth: {

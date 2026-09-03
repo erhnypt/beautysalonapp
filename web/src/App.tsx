@@ -16,6 +16,7 @@ import { ContractsPage } from "./pages/ContractsPage";
 import { AppointmentsPage } from "./pages/AppointmentsPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { StaffPage } from "./pages/StaffPage";
+import { BackupPage } from "./pages/BackupPage";
 import { t } from "./lib/i18n";
 
 export default function App() {
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="ayarlar" element={<SettingsPage />} />
         <Route path="islem-kayitlari" element={<AuditPage />} />
         <Route path="lisans" element={<LicensePage />} />
+        <Route path="yedekleme" element={<BackupPage />} />
         <Route path="randevular" element={<AppointmentsPage />} />
         <Route path="cari" element={<PartiesPage />} />
         <Route path="stok" element={<StockPage />} />

@@ -74,6 +74,45 @@ public class AppProperties {
     @NestedConfigurationProperty
     private Crypto crypto = new Crypto();
 
+    @NestedConfigurationProperty
+    private Backup backup = new Backup();
+
+    public static class Backup {
+        /** Yedek klasörü. Kurulum dizininin İÇİNDE olmamalıdır (§11.2). */
+        private String dir = "./run-data/backups";
+        /** Yedek şifreleme parolası. Kaybolursa yedek açılamaz (§8.2). Boşsa kurulum kimliğinden türetilir. */
+        private String password = "";
+        private boolean scheduledEnabled = true;
+        /** Günlük yedek cron (varsayılan 23:00). */
+        private String cron = "0 0 23 * * *";
+        /** GFS rotasyonu: son N günlük / N haftalık / N aylık. */
+        private int retentionDaily = 7;
+        private int retentionWeekly = 4;
+        private int retentionMonthly = 12;
+        /** İkincil hedef (ağ klasörü / USB) — boş ise yalnızca birincil. */
+        private String secondaryDir = "";
+
+        public String getDir() { return dir; }
+        public void setDir(String dir) { this.dir = dir; }
+        public String getPassword() { return password; }
+        public void setPassword(String password) { this.password = password; }
+        public boolean isScheduledEnabled() { return scheduledEnabled; }
+        public void setScheduledEnabled(boolean v) { this.scheduledEnabled = v; }
+        public String getCron() { return cron; }
+        public void setCron(String cron) { this.cron = cron; }
+        public int getRetentionDaily() { return retentionDaily; }
+        public void setRetentionDaily(int v) { this.retentionDaily = v; }
+        public int getRetentionWeekly() { return retentionWeekly; }
+        public void setRetentionWeekly(int v) { this.retentionWeekly = v; }
+        public int getRetentionMonthly() { return retentionMonthly; }
+        public void setRetentionMonthly(int v) { this.retentionMonthly = v; }
+        public String getSecondaryDir() { return secondaryDir; }
+        public void setSecondaryDir(String v) { this.secondaryDir = v; }
+    }
+
+    public Backup getBackup() { return backup; }
+    public void setBackup(Backup backup) { this.backup = backup; }
+
     public static class Crypto {
         /**
          * Alan şifreleme anahtarı (Base64, 32 bayt) — AES-256-GCM.

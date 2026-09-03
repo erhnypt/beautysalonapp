@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   ScrollText,
   KeyRound,
+  DatabaseBackup,
   LogOut,
   LayoutDashboard,
 } from "lucide-react";
@@ -42,6 +43,7 @@ const items: NavItem[] = [
   { to: "/kullanicilar", label: t.nav.users, icon: <ShieldCheck size={18} />, perm: "USER_VIEW" },
   { to: "/islem-kayitlari", label: t.nav.audit, icon: <ScrollText size={18} />, perm: "AUDIT_VIEW" },
   { to: "/lisans", label: t.nav.license, icon: <KeyRound size={18} /> },
+  { to: "/yedekleme", label: t.nav.backup, icon: <DatabaseBackup size={18} />, perm: "BACKUP_RUN" },
   { to: "/ayarlar", label: t.nav.settings, icon: <Settings size={18} />, perm: "SETTINGS_VIEW" },
 ];
 
