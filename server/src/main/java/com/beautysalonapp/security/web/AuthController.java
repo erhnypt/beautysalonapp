@@ -18,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -96,9 +97,13 @@ public class AuthController {
     }
 
     @GetMapping("/csrf")
-    public ResponseEntity<Void> csrf() {
-        // CsrfToken çözümlemesi çerezi yazar; gövdeye gerek yok.
-        return ResponseEntity.noContent().build();
+    public CsrfTokenView csrf(CsrfToken token) {
+        // CsrfToken argümanının çözümlenmesi ertelenmiş token'ı materyalize eder
+        // ve XSRF-TOKEN çerezini yazar. Token gizli değildir (double-submit deseni).
+        return new CsrfTokenView(token.getHeaderName(), token.getParameterName(), token.getToken());
+    }
+
+    public record CsrfTokenView(String headerName, String parameterName, String token) {
     }
 
     @PostMapping("/change-password")
