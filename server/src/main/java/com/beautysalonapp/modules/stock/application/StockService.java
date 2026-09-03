@@ -259,6 +259,22 @@ public class StockService implements StockPort {
 
     @Override
     @Transactional(readOnly = true)
+    public long defaultWarehouseId() {
+        return defaultWarehouse().getId();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long consumptionWarehouseId() {
+        return warehouses.findByBranchIdAndCode(BRANCH, "SARF")
+                .or(() -> warehouses.findAllByDeletedFalseOrderByCode().stream()
+                        .filter(w -> w.getType() == WarehouseType.CONSUMPTION).findFirst())
+                .orElseGet(this::defaultWarehouse)
+                .getId();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public BarcodeResolution resolveBarcode(String barcode) {
         ItemBarcode bc = barcodes.findByBranchIdAndBarcode(BRANCH, barcode.trim())
                 .orElseThrow(() -> new NotFoundException("Barkod bulunamadı: " + barcode));

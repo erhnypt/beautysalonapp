@@ -13,6 +13,7 @@ import { PartiesPage } from "./pages/PartiesPage";
 import { StockPage } from "./pages/StockPage";
 import { FinancePage } from "./pages/FinancePage";
 import { ContractsPage } from "./pages/ContractsPage";
+import { AppointmentsPage } from "./pages/AppointmentsPage";
 import { t } from "./lib/i18n";
 
 export default function App() {
@@ -52,7 +53,7 @@ export default function App() {
         <Route path="ayarlar" element={<SettingsPage />} />
         <Route path="islem-kayitlari" element={<AuditPage />} />
         <Route path="lisans" element={<LicensePage />} />
-        <Route path="randevular" element={<PlaceholderPage titleKey="appointments" />} />
+        <Route path="randevular" element={<AppointmentsPage />} />
         <Route path="cari" element={<PartiesPage />} />
         <Route path="stok" element={<StockPage />} />
         <Route path="finans" element={<FinancePage />} />

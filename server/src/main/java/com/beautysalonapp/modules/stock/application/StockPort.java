@@ -10,6 +10,12 @@ public interface StockPort {
 
     BarcodeResolution resolveBarcode(String barcode);
 
+    /** Varsayılan depo (giriş fişleri için). */
+    long defaultWarehouseId();
+
+    /** Sarf (hizmet tüketimi) deposu — randevu {@code GELDI} sarfı buradan çıkar. */
+    long consumptionWarehouseId();
+
     /** Çıkış (satış, randevu sarfı). Base miktar {@code enteredQty * factor} olarak hesaplanır. */
     void issue(StockCommand cmd);
 
