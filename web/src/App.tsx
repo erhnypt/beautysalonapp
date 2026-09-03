@@ -11,6 +11,7 @@ import { LicensePage } from "./pages/LicensePage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { PartiesPage } from "./pages/PartiesPage";
 import { StockPage } from "./pages/StockPage";
+import { FinancePage } from "./pages/FinancePage";
 import { t } from "./lib/i18n";
 
 export default function App() {
@@ -53,7 +54,7 @@ export default function App() {
         <Route path="randevular" element={<PlaceholderPage titleKey="appointments" />} />
         <Route path="cari" element={<PartiesPage />} />
         <Route path="stok" element={<StockPage />} />
-        <Route path="finans" element={<PlaceholderPage titleKey="finance" />} />
+        <Route path="finans" element={<FinancePage />} />
         <Route path="faturalar" element={<PlaceholderPage titleKey="invoices" />} />
         <Route path="sozlesmeler" element={<PlaceholderPage titleKey="contracts" />} />
         <Route path="personel" element={<PlaceholderPage titleKey="staff" />} />
