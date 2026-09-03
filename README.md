@@ -53,10 +53,13 @@ cd server && JAVA_HOME=/opt/homebrew/opt/openjdk@17 mvn verify
 | Faz 0 | Çekirdek: kullanıcı/rol/yetki, ayar, audit, lisans motoru, outbound guard | ✅ |
 | Faz 2 | Cari (müşteri/satıcı/perakende), Stok (çoklu barkod/çapraz birim), Kasa & Gelir-Gider | ✅ |
 | Faz 3 | Satış Sözleşmesi + Otomatik Taksitlendirme, Frondex Randevu | ✅ |
-| Faz 1/4 | Lisans sunucusu, jpackage paketleme, Fatura, Banka/POS/Çek, Personel+Prim | ⏳ |
+| Faz 4 | Fatura (alış/satış/perakende/iade), Çek portföyü, POS mahsuplaşma, Personel + Prim | ✅ |
+| Faz 1 | Lisans sunucusu (ayrı repo/VPS), jpackage `.msi`/`.dmg` paketleme | ⏳ |
 | Faz 5 | Yedekleme motoru + doğrulama, Raporlama merkezi / dashboard | ⏳ |
 | Faz 6 | SMS/e-posta bildirim (İYS kontrolü), Kartlı promosyon (PPOS) | ⏳ |
 | Faz 7 | Performans, güvenlik gözden geçirme, imzalama/notarization, pilot | ⏳ |
 
-**91 birim/entegrasyon testi yeşil.** Ana iş akışı (cari → randevu → hizmet → tahsilat,
-sözleşme → taksit → tahsilat) uçtan uca çalışır durumda. Yol haritası: teknik planın 17. bölümü.
+**121 birim/entegrasyon testi yeşil.** Ana iş akışı uçtan uca çalışır: cari → randevu →
+`GELDI` (stok sarfı + hizmet bedeli cariye + prim tahakkuku) → tahsilat; sözleşme → taksit
+planı → taksit tahsilatı; fatura (KDV/indirim, stok + cari + kasa tek transaction) → çek/POS.
+Yol haritası: teknik planın 17. bölümü.
