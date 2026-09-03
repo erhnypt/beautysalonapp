@@ -9,6 +9,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { AuditPage } from "./pages/AuditPage";
 import { LicensePage } from "./pages/LicensePage";
 import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { PartiesPage } from "./pages/PartiesPage";
 import { t } from "./lib/i18n";
 
 export default function App() {
@@ -49,7 +50,7 @@ export default function App() {
         <Route path="islem-kayitlari" element={<AuditPage />} />
         <Route path="lisans" element={<LicensePage />} />
         <Route path="randevular" element={<PlaceholderPage titleKey="appointments" />} />
-        <Route path="cari" element={<PlaceholderPage titleKey="parties" />} />
+        <Route path="cari" element={<PartiesPage />} />
         <Route path="stok" element={<PlaceholderPage titleKey="stock" />} />
         <Route path="finans" element={<PlaceholderPage titleKey="finance" />} />
         <Route path="faturalar" element={<PlaceholderPage titleKey="invoices" />} />

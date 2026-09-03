@@ -71,6 +71,23 @@ public class AppProperties {
     @NestedConfigurationProperty
     private Security security = new Security();
 
+    @NestedConfigurationProperty
+    private Crypto crypto = new Crypto();
+
+    public static class Crypto {
+        /**
+         * Alan şifreleme anahtarı (Base64, 32 bayt) — AES-256-GCM.
+         * Üretimde OS keystore'dan (Windows DPAPI / macOS Keychain) enjekte edilir (§8.2).
+         * Boşsa kurulum kimliğinden türetilir (yalnızca geliştirme).
+         */
+        private String keyBase64 = "";
+        public String getKeyBase64() { return keyBase64; }
+        public void setKeyBase64(String v) { this.keyBase64 = v; }
+    }
+
+    public Crypto getCrypto() { return crypto; }
+    public void setCrypto(Crypto crypto) { this.crypto = crypto; }
+
     public static class Licensing {
         /** Lisans dosyasının yolu. */
         private String licenseFile = "${beautysalonapp.data-dir:./run-data}/config/license.lic";
