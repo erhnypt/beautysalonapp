@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Aynı dal/PR için önceki koşuyu iptal et
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    name: server — mvn verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'          # paketleme hedefi (ADR 0002); bytecode release=17
+          cache: maven
+      - name: Derleme + test (ArchUnit, MockMvc, Testcontainers-siz H2)
+        working-directory: server
+        run: ./mvnw -B -ntp verify
+      - name: Test raporlarını yükle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-surefire-reports
+          path: server/target/surefire-reports/
+          if-no-files-found: ignore
+
+  license-server:
+    name: license-server — mvn verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - working-directory: license-server
+        run: ./mvnw -B -ntp verify
+
+  web:
+    name: web — build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+  dependency-review:
+    name: Bağımlılık zafiyet incelemesi (PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

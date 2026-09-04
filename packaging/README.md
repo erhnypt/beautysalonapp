@@ -92,8 +92,9 @@ Sertifikaları **Faz 1'de** alın (plan Risk #2) — tedarik + doğrulama haftal
 
 1. Uygulama heartbeat cevabında `latestVersion` + `updateUrl` alır.
 2. Kullanıcıya bildirim; **güncelleme öncesi otomatik yedek zorunlu**.
-3. `apply-update.sh` / `.ps1`: yedek → indir → SHA-256 + Ed25519 imza doğrula →
-   servisi durdur → yeni `.msi`/`.dmg` sessiz kur.
+3. `apply-update.sh`: yedek → indir (`.dmg` + `.dmg.sig`) → SHA-256 (zorunlu) +
+   Ed25519 imza (`BSA_UPDATE_PUBKEY_B64URL` verilirse; ham 32 baytlık anahtardan PEM
+   üretip `openssl pkeyutl -verify -rawin`) doğrula → servisi durdur → sessiz kur.
 4. Uygulama açılışta Flyway migration çalıştırır; **başarısızsa yedekten otomatik döner**.
 5. `mandatoryUpdate: true` → kritik güvenlik yaması, ertelenemez.
 
@@ -105,6 +106,10 @@ kurulur. `com.beautysalonapp.app` bundle identifier'ı da sabittir.
 
 ## CI notu
 
-`.github/workflows/ci.yml` derleme + testi çalıştırır. Paketleme için ayrı bir
-`release.yml` gerekir: `windows-latest` + `macos-latest` matrisi, sertifikalar
-GitHub Secrets'ta, `build-all.sh` çağrısı, artefaktları Release'e yükleme.
+- `.github/workflows/ci.yml` — her push/PR: `server` + `license-server` `mvn verify`, `web` build,
+  PR'larda `dependency-review-action`.
+- `.github/workflows/release.yml` — `v*` etiketi veya elle tetikle: `windows-latest` +
+  `macos-latest` matrisi, `build-all.sh` çağrısı, `LICENSE_PUBLIC_KEY` + imza sertifikaları
+  GitHub Secrets'tan, artefaktları GitHub Release'e yükleme. Sertifika secret'ı yoksa
+  imzasız artefakt üretilir.
+- `.github/dependabot.yml` — haftalık maven (server + license-server) / npm (web) / actions.

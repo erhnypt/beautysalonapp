@@ -1,0 +1,78 @@
+name: Release (installer build)
+
+# jpackage ÇAPRAZ DERLEME YAPMAZ: .msi yalnızca Windows'ta, .dmg yalnızca macOS'ta üretilir.
+# Bu iş akışı yalnızca sürüm etiketi (v*) veya elle tetikle çalışır.
+# Sertifikalar GitHub Secrets'ta olmalı; yoksa imzasız artefakt üretilir (SmartScreen/Gatekeeper uyarır).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: 'İmzala + notarize et (sertifika secret gerektirir)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # Release'e artefakt yükleme
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: '*.msi'
+          - os: macos-latest
+            artifact: '*.dmg'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 21 (jpackage + jlink)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: WiX Toolset (yalnızca Windows)
+        if: runner.os == 'Windows'
+        run: dotnet tool install --global wix
+
+      - name: build-all.sh
+        shell: bash
+        env:
+          LICENSE_PUBLIC_KEY: ${{ secrets.LICENSE_PUBLIC_KEY }}
+          SIGN: ${{ (inputs.sign || startsWith(github.ref, 'refs/tags/')) && '1' || '0' }}
+          NOTARIZE: ${{ runner.os == 'macOS' && (inputs.sign || startsWith(github.ref, 'refs/tags/')) && '1' || '0' }}
+          # macOS imzalama/notarization
+          MAC_APP_IDENTITY: ${{ secrets.MAC_APP_IDENTITY }}
+          NOTARY_PROFILE: ${{ secrets.NOTARY_PROFILE }}
+          # Windows Authenticode
+          WIN_SIGN_SHA1: ${{ secrets.WIN_SIGN_SHA1 }}
+        run: |
+          export JAVA_HOME="$JAVA_HOME_21_X64${JAVA_HOME_21_arm64:+$JAVA_HOME_21_arm64}"
+          bash packaging/scripts/build-all.sh
+
+      - name: Artefaktları yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            packaging/dist/out/${{ matrix.artifact }}
+            packaging/dist/out/checksums.txt
+
+      - name: GitHub Release'e ekle (etiketliyse)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            packaging/dist/out/${{ matrix.artifact }}
+            packaging/dist/out/checksums.txt

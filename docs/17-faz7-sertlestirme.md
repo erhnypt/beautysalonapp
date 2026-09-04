@@ -34,6 +34,8 @@ günlük dashboard ~40 ms, saf liste sorguları < 1 ms — hedef 300 ms altında
 | Oturum çerezi `SameSite=Strict` + `HttpOnly` açıkça | `application.yml` |
 | Paketlenmiş üründe Swagger/OpenAPI kapalı | `application-packaged.yml` |
 | SMS/e-posta NoOp loglarında PII maskeleme (gövde/adres yalnızca DEBUG) | `NoOpSmsProvider`, `NoOpEmailSender` |
+| `apply-update.sh`: SHA-256 zorunlu + Ed25519 `.sig` doğrulaması (openssl round-trip'li) | `packaging/scripts/apply-update.sh` |
+| CI: Dependabot (haftalık) + PR'da `dependency-review-action` | `.github/dependabot.yml`, `.github/workflows/ci.yml` |
 
 Kalan maddeler (kod dışı / operasyon) `docs/guvenlik/guvenlik-gozden-gecirme.md` §10'da.
 
@@ -64,11 +66,12 @@ hard-delete yasağı + audit, `LOCKED`'te bile dışa aktarma, İYS izin kontrol
 - [ ] Temiz Windows VM + temiz macOS'ta kurulum + ilk giriş + yedek/geri-yükle çalıştı
 
 ### Güvenlik
-- [ ] Bağımlılık taraması (OWASP Dependency-Check / Dependabot) — kritik/yüksek açık yok
-- [ ] `application-packaged.yml`: swagger kapalı, `server.address=127.0.0.1`
+- [x] Bağımlılık taraması — Dependabot + `dependency-review-action` (`.github/`)
+- [x] `application-packaged.yml`: swagger kapalı, `server.address=127.0.0.1`
+- [x] `apply-update` Ed25519 imza doğrulaması tamamlandı (`BSA_UPDATE_PUBKEY_B64URL`)
 - [ ] Şifreleme anahtarı OS keystore'dan besleniyor (kurulum kimliğinden türetme **değil**)
 - [ ] Veri kökü ACL'leri doğrulandı (yalnızca hizmet hesabı + yöneticiler yazabilir)
-- [ ] `apply-update` Ed25519 imza doğrulaması tamamlandı
+- [ ] Dependabot PR'larının kritik/yüksek açığı kapattığı doğrulandı
 - [ ] (Önerilir) Bağımsız sızma testi raporu
 
 ### KVKK / hukuk

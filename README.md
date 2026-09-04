@@ -11,10 +11,13 @@ yerelde tutan, tarayıcı arayüzlü ön muhasebe + randevu + CRM + sadakat yaz�
 |---|---|
 | `server/` | Spring Boot backend (REST API + statik SPA sunumu + zamanlanmış işler) |
 | `web/` | React + TypeScript + Vite arayüzü |
-| `license-server/` | Ayrı deploy edilen lisans/abonelik sunucusu (kendi VPS'inizde) |
-| `packaging/` | jpackage / WinSW / launchd paketleme dosyaları |
-| `tools/` | Lisans üretme CLI, demo veri üretici |
-| `docs/` | Mimari, veri modeli, modül dokümanları, ADR'ler |
+| `license-server/` | Ayrı deploy edilen lisans/abonelik sunucusu (kendi VPS'inizde) — Ed25519 imzalı `license.lic` üretir |
+| `packaging/` | jpackage / jlink / WinSW / launchd paketleme dosyaları + imzalama/notarization/güncelleme betikleri |
+| `docs/` | Mimari, veri modeli, modül dokümanları, ADR'ler, kurulum + kullanım kılavuzu, güvenlik gözden geçirme |
+
+> Sentetik demo/performans veri üretici: `server/.../perf/PerfDataGenerator.java`
+> (`beautysalonapp.perf.seed=true` — bkz. [`docs/perf/README.md`](docs/perf/README.md)).
+> Lisans üretme: `license-server` içindeki `LicenseSigner` + admin paneli.
 
 ## Geliştirme ortamı
 
@@ -46,20 +49,32 @@ kopyalanır ve tek JAR olarak sunulur.
 cd server && JAVA_HOME=/opt/homebrew/opt/openjdk@17 mvn verify
 ```
 
-## Durum
+## Durum — v1 yol haritası tamamlandı
 
 | Faz | Kapsam | Durum |
 |---|---|---|
 | Faz 0 | Çekirdek: kullanıcı/rol/yetki, ayar, audit, lisans motoru, outbound guard | ✅ |
+| Faz 1 | Lisans sunucusu (`license-server/`, Ed25519 + heartbeat + admin panel), jpackage/jlink `.msi`/`.dmg` paketleme (`packaging/`) | ✅ |
 | Faz 2 | Cari (müşteri/satıcı/perakende), Stok (çoklu barkod/çapraz birim), Kasa & Gelir-Gider | ✅ |
 | Faz 3 | Satış Sözleşmesi + Otomatik Taksitlendirme, Frondex Randevu | ✅ |
 | Faz 4 | Fatura (alış/satış/perakende/iade), Çek portföyü, POS mahsuplaşma, Personel + Prim | ✅ |
-| Faz 1 | Lisans sunucusu (ayrı repo/VPS), jpackage `.msi`/`.dmg` paketleme | ⏳ |
 | Faz 5 | Yedekleme motoru (AES-GCM, GFS rotasyon, doğrulama, geri yükleme), Günlük Analiz dashboard | ✅ |
 | Faz 6 | SMS/e-posta bildirim (İYS kontrolü, kuyruk, tetikleyiciler), Kartlı promosyon/sadakat (PPOS) | ✅ |
-| Faz 7 | Performans, güvenlik gözden geçirme, imzalama/notarization, pilot | ⏳ |
+| Faz 7 | Performans harness (10 yıl / 500k), güvenlik gözden geçirme + sertleştirme, kullanım/kurulum kılavuzu, pilot planı | ✅ |
 
-**157 birim/entegrasyon testi yeşil.** Ana iş akışı uçtan uca çalışır: cari → randevu →
-`GELDI` (stok sarfı + hizmet bedeli cariye + prim tahakkuku) → tahsilat; sözleşme → taksit
-planı → taksit tahsilatı; fatura (KDV/indirim, stok + cari + kasa tek transaction) → çek/POS.
-Yol haritası: teknik planın 17. bölümü.
+**157 birim/entegrasyon testi yeşil** (`mvn test`) · **158** performans profiliyle (`mvn -Pperf test`).
+Ana iş akışı uçtan uca çalışır: cari → randevu → `GELDI` (stok sarfı + hizmet bedeli cariye +
+prim tahakkuku) → tahsilat; sözleşme → taksit planı → taksit tahsilatı; fatura (KDV/indirim,
+stok + cari + kasa tek transaction) → çek/POS.
+
+**Yayına kadar kalanlar** (kod dışı — [`docs/17-faz7-sertlestirme.md`](docs/17-faz7-sertlestirme.md)
+kontrol listesi): gerçek imzalama sertifikaları (Apple $99/yıl, Windows EV ~$300/yıl),
+bağımsız sızma testi, canlı pilot + muhasebe mutabakatı, eğitim videoları, KVKK metinlerinin
+hukukçu onayı.
+
+## CI
+
+`.github/workflows/ci.yml` — her push/PR'da `server` + `license-server` `mvn verify`, `web` build,
+PR'larda bağımlılık zafiyet incelemesi. `release.yml` — `v*` etiketinde windows + macOS
+runner'larında installer üretir (sertifika secret'ları varsa imzalı). `.github/dependabot.yml`
+haftalık bağımlılık güncellemeleri.

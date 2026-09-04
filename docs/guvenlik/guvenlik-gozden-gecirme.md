@@ -98,7 +98,7 @@
 
 | # | Kontrol | Durum | Not |
 |---|---|---|---|
-| H1 | Bilinen zafiyet taraması | ⚠️ | CI'da `mvn org.owasp:dependency-check-maven:check` veya GitHub Dependabot etkinleştirilmeli (release öncesi). |
+| H1 | Bilinen zafiyet taraması | ✅ | `.github/dependabot.yml` (haftalık maven/npm/actions) + `ci.yml` PR'larında `dependency-review-action` (`fail-on-severity: high`). |
 | H2 | Spring Boot güncel yama | ✅ | 3.3.6 (Faz 7 tarihinde güncel 3.3.x) |
 | H3 | Kripto kütüphanesi | ✅ | BouncyCastle `bcprov-jdk18on:1.78.1` |
 | H4 | Derleme reprodüksiyonu | ✅ | `./mvnw` wrapper sabit sürüm; `finalName` sabit |
@@ -110,7 +110,7 @@
 | I1 | Servis en az yetkiyle çalışır | ⚠️ | `--launcher-as-service` LocalSystem/root kurar. **Öneri:** kurulum sonrası ayrı hizmet hesabı (Windows `NT SERVICE\...`, macOS ayrı kullanıcı) — paketleme mühendisi. |
 | I2 | Veri dizini izinleri | ⚠️ | `%ProgramData%\BeautySalonApp` / `/Library/Application Support/...` — yalnızca hizmet hesabı + Administrators yazabilmeli. WiX/pkg CustomAction ile ACL. |
 | I3 | İmzalı installer | ❌ (bloke) | Gerçek sertifika gerek* — plan Risk #2. `sign.sh`/`notarize.sh` hazır. |
-| I4 | Güncelleme paketi bütünlüğü | ⚠️ | `apply-update.sh` SHA-256 doğrular; Ed25519 `.sig` doğrulaması `TODO` (gömülü lisans public key ile tamamlanacak). |
+| I4 | Güncelleme paketi bütünlüğü | ✅ | `apply-update.sh`: SHA-256 zorunlu + Ed25519 `.sig` (`BSA_UPDATE_PUBKEY_B64URL` → PEM → `openssl pkeyutl -verify -rawin`). openssl round-trip ile doğrulandı. |
 
 \* Apple Developer Program ($99/yıl), Windows EV Code Signing (~$300/yıl).
 
@@ -118,12 +118,16 @@
 
 ## 10. Özet — yayın öncesi yapılacaklar
 
-**Kod (bu depoda kapatılabilir):**
-1. `application.yml` → `server.servlet.session.cookie.same-site=strict` (A6)
-2. `application-packaged.yml` → `springdoc.swagger-ui.enabled=false` (B6)
-3. `NoOpSmsProvider` / e-posta gönderici log satırlarında gövde maskeleme veya `DEBUG` (F5)
-4. `apply-update.sh` → Ed25519 `.sig` doğrulaması (I4)
-5. CI'ya OWASP Dependency-Check / Dependabot (H1)
+**Kod (Faz 7'de kapatıldı):**
+1. ✅ `application.yml` → `server.servlet.session.cookie.same-site=strict` (A6)
+2. ✅ `application-packaged.yml` → `springdoc.*.enabled=false` (B6)
+3. ✅ `NoOpSmsProvider` / `NoOpEmailSender` — gövde/adres yalnızca `DEBUG` (F5)
+4. ✅ `apply-update.sh` → Ed25519 `.sig` doğrulaması (I4)
+5. ✅ CI'ya Dependabot + `dependency-review-action` (H1)
+
+**Hâlâ açık (kod, izlenmeli):**
+- A6 not: `SameSite=Strict` + LAN erişimi senaryosunda cross-site POST gelmez; sorun değil.
+- C5: `AttachmentService` dosya adı / yol geçişi sanitizasyonu birim testiyle sabitlensin.
 
 **Kod dışı (operasyon / tedarik):**
 6. Apple + Windows imzalama sertifikaları (I3) — **Faz 1'de sipariş edilmeliydi**
