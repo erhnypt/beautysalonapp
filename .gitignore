@@ -28,6 +28,7 @@ Thumbs.db
 # Runtime data (asla commit edilmez)
 /run-data/
 run-data/
+perf-data/
 *.mv.db
 *.trace.db
 /server/data/

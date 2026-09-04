@@ -20,6 +20,13 @@ logging:
   level:
     root: INFO
 
+# API dokümantasyonu paketlenmiş üründe kapalı (§8.1 saldırı yüzeyi — Faz 7).
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 beautysalonapp:
   data-dir: ./run-data       # resolvePackagedDataDir bunu OS yoluna çevirir
   lan-access-enabled: false

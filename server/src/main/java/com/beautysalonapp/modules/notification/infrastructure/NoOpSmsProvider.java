@@ -20,7 +20,10 @@ public class NoOpSmsProvider implements SmsProvider {
 
     @Override
     public void send(String toPhone, String text) {
-        log.info("[SMS-NOOP] → {} : {}", mask(toPhone), text);
+        // KVKK (CLAUDE.md #10): mesaj gövdesi müşteri adı içerebilir — INFO'da yalnızca
+        // maskeli numara + uzunluk; tam gövde yalnızca DEBUG'da.
+        log.info("[SMS-NOOP] → {} ({} karakter)", mask(toPhone), text == null ? 0 : text.length());
+        log.debug("[SMS-NOOP] gövde → {} : {}", mask(toPhone), text);
     }
 
     private static String mask(String phone) {

@@ -16,6 +16,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 
 /**
  * Uygulama güvenliği (§8.1).
@@ -51,6 +53,18 @@ public class SecurityConfig {
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(csrfHandler)
                 .ignoringRequestMatchers("/api/v1/auth/login", "/api/v1/auth/logout"))
+            // Güvenlik başlıkları (§8.1, Faz 7 sertleştirme). X-Content-Type-Options,
+            // X-Frame-Options, Cache-Control zaten varsayılan; CSP + Referrer/Permissions
+            // Policy elle eklenir. Uygulama SPA'yı kendi origin'inden sunar.
+            .headers(headers -> headers
+                .frameOptions(fo -> fo.deny())
+                .contentSecurityPolicy(csp -> csp.policyDirectives(
+                    "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+                    + "font-src 'self' data:; connect-src 'self'; object-src 'none'; "
+                    + "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"))
+                .referrerPolicy(rp -> rp.policy(ReferrerPolicy.NO_REFERRER))
+                .addHeaderWriter(new StaticHeadersWriter("Permissions-Policy",
+                    "geolocation=(), camera=(), microphone=(), payment=(), usb=()")))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(

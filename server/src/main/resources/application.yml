@@ -44,6 +44,12 @@ server:
   error:
     include-message: never
     include-stacktrace: never
+  servlet:
+    session:
+      cookie:
+        # Oturum çerezi (§8.1, Faz 7 sertleştirme).
+        http-only: true
+        same-site: strict
 
 management:
   endpoints:
