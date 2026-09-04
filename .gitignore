@@ -43,3 +43,10 @@ perf-data/
 *.p12
 *-private.key
 license-server/keys/
+
+# Playwright / E2E
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/.playwright/
+server/target/e2e-data/
