@@ -20,6 +20,7 @@ import { BackupPage } from "./pages/BackupPage";
 import { LoyaltyPage } from "./pages/LoyaltyPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { BankReconciliationPage } from "./pages/BankReconciliationPage";
+import { BranchesPage } from "./pages/BranchesPage";
 import { t } from "./lib/i18n";
 
 export default function App() {
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="parola-degistir" element={<ChangePasswordPage />} />
         <Route path="kullanicilar" element={<UsersPage />} />
         <Route path="ayarlar" element={<SettingsPage />} />
+        <Route path="subeler" element={<BranchesPage />} />
         <Route path="islem-kayitlari" element={<AuditPage />} />
         <Route path="lisans" element={<LicensePage />} />
         <Route path="yedekleme" element={<BackupPage />} />

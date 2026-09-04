@@ -52,6 +52,17 @@ public class ReportService {
     }
 
     public DailyDashboard today() {
+        return today(null);
+    }
+
+    /**
+     * @param branchId {@code null} ise tüm şubeler (v1 tek-şube davranışıyla birebir);
+     *                 verilirse yalnızca o şubenin kayıtları (Faz 8 "merkezi işletme" şeması,
+     *                 bkz. docs/adr/0006-merkezi-sube.md). Değer yalnızca kod içinde üretilen
+     *                 bir {@code Long} olduğundan (denetlenmiş {@code @RequestParam}), doğrudan
+     *                 metne eklemek güvenlidir — kullanıcı girdisi asla ham SQL'e karışmaz.
+     */
+    public DailyDashboard today(Long branchId) {
         LocalDate today = LocalDate.now();
         Date sqlToday = Date.valueOf(today);
         Date from30 = Date.valueOf(today.minusDays(30));
@@ -65,15 +76,13 @@ public class ReportService {
                     when invoice_type = 'IADE_SATIS' then -grand_total
                     else 0 end), 0)
                 from invoice
-                where status = 'CONFIRMED' and invoice_date = ?
-                """, BigDecimal.class, sqlToday));
+                where status = 'CONFIRMED' and invoice_date = ?""" + bf("branch_id", branchId), BigDecimal.class, sqlToday));
 
         BigDecimal apptRevenue = nz(jdbc.queryForObject("""
                 select coalesce(sum(price_snapshot), 0)
                 from appointment
                 where status = 'GELDI' and contract_line_id is null
-                  and cast(arrived_at as date) = ?
-                """, BigDecimal.class, sqlToday));
+                  and cast(arrived_at as date) = ?""" + bf("branch_id", branchId), BigDecimal.class, sqlToday));
 
         // Ödeme türü dağılımı (bugün, iptal olmayan)
         var payMap = new java.util.HashMap<String, BigDecimal>();
@@ -82,7 +91,8 @@ public class ReportService {
                     when c.txn_type = 'COLLECTION' then c.amount
                     when c.txn_type = 'PAYMENT' then -c.amount else 0 end), 0) as net
                 from cash_transaction c join fin_account a on a.id = c.account_id
-                where c.voided = false and c.txn_date = ?
+                where c.voided = false and c.txn_date = ?""" + bf("c.branch_id", branchId) + """
+
                 group by a.kind
                 """, (org.springframework.jdbc.core.RowCallbackHandler) rs -> { payMap.put(rs.getString("kind"), rs.getBigDecimal("net")); }, sqlToday);
         var payments = new PaymentBreakdown(
@@ -92,37 +102,40 @@ public class ReportService {
 
         BigDecimal collections = nz(jdbc.queryForObject("""
                 select coalesce(sum(amount), 0) from cash_transaction
-                where txn_type = 'COLLECTION' and voided = false and txn_date = ?
-                """, BigDecimal.class, sqlToday));
+                where txn_type = 'COLLECTION' and voided = false and txn_date = ?""" + bf("branch_id", branchId),
+                BigDecimal.class, sqlToday));
 
         BigDecimal expenses = nz(jdbc.queryForObject("""
                 select coalesce(sum(c.amount), 0)
                 from cash_transaction c join income_expense_card ie on ie.id = c.income_expense_card_id
-                where ie.direction = 'EXPENSE' and c.voided = false and c.txn_date = ?
-                """, BigDecimal.class, sqlToday));
+                where ie.direction = 'EXPENSE' and c.voided = false and c.txn_date = ?""" + bf("c.branch_id", branchId),
+                BigDecimal.class, sqlToday));
 
         Map<String, Integer> apptStatus = new LinkedHashMap<>();
         jdbc.query("""
                 select status, count(*) as cnt from appointment
-                where cast(start_at as date) = ? group by status
+                where cast(start_at as date) = ?""" + bf("branch_id", branchId) + """
+
+                group by status
                 """, (org.springframework.jdbc.core.RowCallbackHandler) rs -> { apptStatus.put(rs.getString("status"), rs.getInt("cnt")); }, sqlToday);
 
         int newCustomers = nzInt(jdbc.queryForObject("""
                 select count(*) from party
-                where party_type = 'MUSTERI' and deleted = false and cast(created_at as date) = ?
-                """, Integer.class, sqlToday));
+                where party_type = 'MUSTERI' and deleted = false and cast(created_at as date) = ?""" + bf("branch_id", branchId),
+                Integer.class, sqlToday));
 
         var alerts = new java.util.ArrayList<Alert>();
         jdbc.query("""
                 select count(*) as cnt, coalesce(sum(amount - paid_amount), 0) as amt
                 from installment
-                where status in ('BEKLIYOR','GECIKMIS') and due_date <= ?
-                """, (org.springframework.jdbc.core.RowCallbackHandler) rs -> alerts.add(new Alert("installments_due", rs.getInt("cnt"), rs.getBigDecimal("amt"))),
+                where status in ('BEKLIYOR','GECIKMIS') and due_date <= ?""" + bf("branch_id", branchId),
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> alerts.add(new Alert("installments_due", rs.getInt("cnt"), rs.getBigDecimal("amt"))),
                 sqlToday);
         int criticalStock = nzInt(jdbc.queryForObject("""
                 select count(*) from (
                   select i.id from item i join stock_level sl on sl.item_id = i.id
-                  where i.reorder_level is not null and i.deleted = false
+                  where i.reorder_level is not null and i.deleted = false""" + bf("i.branch_id", branchId) + """
+
                   group by i.id, i.reorder_level
                   having sum(sl.qty_base) <= i.reorder_level
                 ) x
@@ -130,8 +143,8 @@ public class ReportService {
         alerts.add(new Alert("critical_stock", criticalStock, BigDecimal.ZERO));
         int chequesDue = nzInt(jdbc.queryForObject("""
                 select count(*) from cheque
-                where status in ('PORTFOYDE','BANKAYA_TAHSILE') and due_date <= ?
-                """, Integer.class, weekAhead));
+                where status in ('PORTFOYDE','BANKAYA_TAHSILE') and due_date <= ?""" + bf("branch_id", branchId),
+                Integer.class, weekAhead));
         alerts.add(new Alert("cheques_due_week", chequesDue, BigDecimal.ZERO));
 
         var trend = jdbc.query("""
@@ -139,7 +152,8 @@ public class ReportService {
                     when invoice_type in ('SATIS','PERAKENDE') then grand_total
                     when invoice_type = 'IADE_SATIS' then -grand_total else 0 end) as amt
                 from invoice
-                where status = 'CONFIRMED' and invoice_date >= ?
+                where status = 'CONFIRMED' and invoice_date >= ?""" + bf("branch_id", branchId) + """
+
                 group by invoice_date order by invoice_date
                 """, (rs, i) -> new TrendPoint(rs.getDate("d").toLocalDate(), nz(rs.getBigDecimal("amt"))),
                 from30);
@@ -147,20 +161,30 @@ public class ReportService {
         var serviceDist = jdbc.query("""
                 select sd.name as n, count(*) as c
                 from appointment a join service_definition sd on sd.id = a.service_id
-                where a.status = 'GELDI' and a.start_at >= ?
+                where a.status = 'GELDI' and a.start_at >= ?""" + bf("a.branch_id", branchId) + """
+
                 group by sd.name order by c desc
                 """, (rs, i) -> new NameCount(rs.getString("n"), rs.getLong("c")), fromTs30);
 
         var staffOcc = jdbc.query("""
                 select s.title as n, count(*) as c
                 from appointment a join staff s on s.party_id = a.staff_party_id
-                where a.start_at >= ?
+                where a.start_at >= ?""" + bf("a.branch_id", branchId) + """
+
                 group by s.title order by c desc
                 """, (rs, i) -> new NameCount(rs.getString("n"), rs.getLong("c")), fromTs30);
 
         return new DailyDashboard(today, invoiceRevenue, apptRevenue,
                 invoiceRevenue.add(apptRevenue), payments, collections, expenses,
                 apptStatus, newCustomers, alerts, trend, serviceDist, staffOcc);
+    }
+
+    /**
+     * Yalnızca dahili, denetlenmiş {@code Long branchId}'den üretilen güvenli SQL parçası
+     * (statik/parametreli — singleton bean'de mutable alan yok, eşzamanlı isteklerde güvenli).
+     */
+    private static String bf(String column, Long branchId) {
+        return branchId == null ? "" : " and " + column + " = " + branchId;
     }
 
     /** Gün sonu özeti (yöneticiye e-posta metni için, §14.2). */

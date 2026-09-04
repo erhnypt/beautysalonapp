@@ -72,4 +72,24 @@ class ReportServiceTest {
         assertThat(d.appointmentsByStatus()).containsKey("GELDI");
         assertThat(reports.endOfDaySummary()).contains("GÜN SONU RAPORU");
     }
+
+    @Test
+    void sube_filtresi_baska_subenin_verisini_gostermez() {
+        // Test verisinin tamamı branch_id=1 (v1 tek şube). Var olmayan bir şube filtresi
+        // her şeyi sıfırlamalı; branch_id=1 filtresi ise filtresizle aynı olmalı (Faz 8).
+        long cust = partyService.create(PartyType.MUSTERI, null, "Şube Test " + System.nanoTime(),
+                null, null, null, null, null, null).getId();
+        invoices.create(new CreateInvoiceCommand(InvoiceType.SATIS, LocalDate.now(), cust, null, null, null,
+                java.util.List.of(new NewLine(null, true, "Hizmet", BigDecimal.ONE, null,
+                        new BigDecimal("300"), BigDecimal.ZERO, new BigDecimal("20"))),
+                java.util.List.of(new NewPayment(PaymentMethod.CASH, new BigDecimal("360"), null, null, null, null, null))));
+
+        var allBranches = reports.today(null);
+        var onlyBranch1 = reports.today(1L);
+        var otherBranch = reports.today(999_999L);
+
+        assertThat(onlyBranch1.invoiceRevenue()).isEqualByComparingTo(allBranches.invoiceRevenue());
+        assertThat(otherBranch.invoiceRevenue()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(otherBranch.newCustomers()).isZero();
+    }
 }

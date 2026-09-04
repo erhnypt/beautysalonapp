@@ -1,8 +1,15 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
 import { useLicense } from "../lib/license";
 import { t } from "../lib/i18n";
+
+interface BranchOption {
+  id: number;
+  code: string;
+  title: string;
+}
 
 interface Alert {
   key: string;
@@ -43,12 +50,21 @@ const alertLabel: Record<string, (a: Alert) => string> = {
 };
 
 export function DashboardPage() {
+  const [branchId, setBranchId] = useState<number | "">("");
+
+  const branches = useQuery({
+    queryKey: ["branches-for-switcher"],
+    queryFn: () => api<BranchOption[]>("/api/v1/branches"),
+  });
   const { data } = useQuery({
-    queryKey: ["dashboard-today"],
-    queryFn: () => api<Dashboard>("/api/v1/dashboard/today"),
+    queryKey: ["dashboard-today", branchId],
+    queryFn: () =>
+      api<Dashboard>(`/api/v1/dashboard/today${branchId ? `?branchId=${branchId}` : ""}`),
     refetchInterval: 2 * 60 * 1000,
   });
   const { data: license } = useLicense();
+
+  const showSwitcher = (branches.data?.length ?? 0) > 1;
 
   if (!data) {
     return (
@@ -64,7 +80,23 @@ export function DashboardPage() {
 
   return (
     <div>
-      <PageHeader title={`${t.dashboard.title} · ${new Date(data.date).toLocaleDateString("tr-TR")}`} />
+      <PageHeader
+        title={`${t.dashboard.title} · ${new Date(data.date).toLocaleDateString("tr-TR")}`}
+        actions={
+          showSwitcher && (
+            <select
+              className="input w-auto"
+              value={branchId}
+              onChange={(e) => setBranchId(e.target.value ? Number(e.target.value) : "")}
+            >
+              <option value="">Tüm şubeler</option>
+              {branches.data!.map((b) => (
+                <option key={b.id} value={b.id}>{b.code} — {b.title}</option>
+              ))}
+            </select>
+          )
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Ciro (bugün)" value={tl(data.totalRevenue)} sub={`Fatura ${tl(data.invoiceRevenue)} · Randevu ${tl(data.appointmentRevenue)}`} />

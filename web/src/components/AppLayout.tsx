@@ -18,6 +18,7 @@ import {
   LogOut,
   LayoutDashboard,
   Landmark,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { t } from "../lib/i18n";
@@ -48,6 +49,7 @@ const items: NavItem[] = [
   { to: "/islem-kayitlari", label: t.nav.audit, icon: <ScrollText size={18} />, perm: "AUDIT_VIEW" },
   { to: "/lisans", label: t.nav.license, icon: <KeyRound size={18} /> },
   { to: "/yedekleme", label: t.nav.backup, icon: <DatabaseBackup size={18} />, perm: "BACKUP_RUN" },
+  { to: "/subeler", label: t.nav.branches, icon: <Building2 size={18} />, perm: "SETTINGS_VIEW" },
   { to: "/ayarlar", label: t.nav.settings, icon: <Settings size={18} />, perm: "SETTINGS_VIEW" },
 ];
 
