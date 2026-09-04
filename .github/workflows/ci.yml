@@ -28,7 +28,7 @@ jobs:
         run: ./mvnw -B -ntp verify
       - name: Test raporlarını yükle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: server-surefire-reports
           path: server/target/surefire-reports/
@@ -118,7 +118,7 @@ jobs:
         run: npm run e2e
       - name: Playwright raporu
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: web/playwright-report/
