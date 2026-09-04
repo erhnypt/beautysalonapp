@@ -29,7 +29,7 @@ jobs:
             artifact: '*.dmg'
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: JDK 21 (jpackage + jlink)
         uses: actions/setup-java@v4
