@@ -113,6 +113,19 @@ Yetki: `FINANCE_VIEW` (okuma), `FINANCE_EDIT` (eşleştirme/oluşturma/silme).
 her satır için durum rozeti, tutar (renkli işaret), en iyi öneri + "Eşleştir" / "Yeni hareket" /
 "Yok say" aksiyonları. Üstte "otomatik eşleştir" ve özet (N/M mutabık, açılış/kapanış bakiye farkı).
 
+## KVKK değerlendirmesi (CLAUDE.md #10)
+
+`bank_statement_line.description/counterparty/raw_line` şifrelenmedi. Gerekçe: bu alanlar
+işletmenin **kendi banka ekstresindeki** serbest metin muhasebe kayıtlarıdır — plandaki
+şifreleme tetikleyicileri (TC kimlik no, telefon, sağlık/alerji notu, §8.2) kapsamına
+girmez ve zaten şifrelenmeyen `cash_transaction.description` ile aynı niteliktedir
+(tutarlılık). Ekstre satırı bazen bir karşı tarafın adını içerebilir (ör. "Ahmet Yılmaz'dan
+havale") ama bu, kartlı bir müşteri kaydı değil, muhasebe defteri metnidir. Hiçbir
+`log.*` çağrısı bu alanları yazmaz (yalnızca `audit_log`'a, mevcut `cash_transaction`
+iptal gerekçeleri gibi serbest metin özetlerle aynı düzeyde). `docs/04-guvenlik-kvkk.md`
+(CLAUDE.md'nin referans verdiği dosya) bu depoda henüz yok — önceden var olan bir boşluk;
+`docs/guvenlik/guvenlik-gozden-gecirme.md` bu değerlendirmenin yerini kısmen tutuyor.
+
 ## Test
 
 - `Mt940ParserTest` — gerçek örnek MT940 blokları, çok satırlı `:86:`, `C/D/RC/RD`, açılış/kapanış.

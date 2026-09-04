@@ -51,6 +51,16 @@ XML üretimi ise değer katar (işletme elle yükleme sürecini hızlandırır) 
 - KDV muafiyet/istisna kodları (`ISTISNA`, `TEVKIFAT` vb.) — yalnızca standart `SATIS`/`IADE`
   ve `KDV`/`0015` vergi tipiyle üretilir.
 
+## KVKK değerlendirmesi (CLAUDE.md #10)
+
+Bu modül **yeni bir kalıcı depolama alanı eklemez** — `Party.taxId`/`tcNo` zaten
+`EncryptedStringConverter` ile şifreli (mevcut alan, `EInvoiceService` yalnızca
+`PartyDirectory` portu üzerinden çözülmüş halini okur). Üretilen XML diske yazılmaz;
+HTTP yanıtı olarak akışa yazılır ve tarayıcıda indirilir — sunucu tarafında saklanmaz.
+`invoice.einvoice_uuid/einvoice_status` kimlik bilgisi değildir (rastgele UUID + durum
+metni). `audit_log`'a yazılan özet yalnızca fatura no'sunu içerir, vergi no/ad geçmez.
+`docs/04-guvenlik-kvkk.md` bu depoda yok (önceden var olan boşluk, bkz. banka-mutabakat.md).
+
 ## Test
 
 - `UblTrInvoiceBuilderTest` (8) — iyi biçimlilik, başlık/taraf/tutar/satır alanları, TCKN/VKN

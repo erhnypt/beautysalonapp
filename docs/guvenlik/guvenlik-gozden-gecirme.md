@@ -135,3 +135,15 @@
 8. Hizmet hesabı + veri dizini ACL (I1, I2)
 9. Bağımsız sızma testi
 10. Avukat + KVKK danışmanı ile rıza/aydınlatma metinleri (plan §8.3 notu)
+
+## 11. Faz 8 eklemelerinin KVKK/PII taraması (2026-09-04)
+
+Yeni modüller (`modules.reconciliation`, `modules.branch`, e-Fatura `modules.invoice`
+eklentisi) tarandı: hiçbir `log.*` (SLF4J) çağrısı PII yazmıyor; yeni DB alanlarından
+hiçbiri plandaki şifreleme tetikleyicilerine (TC no, telefon, sağlık/alerji notu, §8.2)
+girmiyor — ayrıntılı gerekçe her modülün kendi dokümanında ("KVKK değerlendirmesi" bölümü,
+bkz. `docs/modules/banka-mutabakat.md`, `docs/modules/e-fatura.md`). e-Fatura mevcut
+şifreli `Party.taxId/tcNo` alanlarını yalnızca **okur**, yeni düz metin kalıcılık eklemez.
+`docs/04-guvenlik-kvkk.md` (CLAUDE.md'nin referans verdiği dosya) bu depoda hâlâ yok —
+bu, bu oturumdan önce var olan bir boşluktur; madde 10'daki "avukat + KVKK danışmanı"
+adımıyla birlikte ele alınmalı.
