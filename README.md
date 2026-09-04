@@ -61,9 +61,9 @@ cd server && JAVA_HOME=/opt/homebrew/opt/openjdk@17 mvn verify
 | Faz 5 | Yedekleme motoru (AES-GCM, GFS rotasyon, doğrulama, geri yükleme), Günlük Analiz dashboard | ✅ |
 | Faz 6 | SMS/e-posta bildirim (İYS kontrolü, kuyruk, tetikleyiciler), Kartlı promosyon/sadakat (PPOS) | ✅ |
 | Faz 7 | Performans harness (10 yıl / 500k), güvenlik gözden geçirme + sertleştirme, kullanım/kurulum kılavuzu, pilot planı | ✅ |
-| Faz 8 (v2, sürüyor) | Banka ekstresi içe aktarma & mutabakat (MT940/CSV) · Merkezi işletme şeması (şube CRUD + Günlük Analiz şube filtresi, bkz. ADR 0006) | ✅ (kısmi kapsam) |
+| Faz 8 (v2, sürüyor) | Banka ekstresi içe aktarma & mutabakat (MT940/CSV) · Merkezi işletme şeması (şube CRUD + Günlük Analiz şube filtresi, ADR 0006) · Mobil görünüm + PWA · e-Fatura hazırlığı (UBL-TR XML üretimi, gönderim yok) | ✅ (kısmi kapsam — her biri kendi dokümanında sınırları işaretli) |
 
-**217 birim/entegrasyon testi yeşil** (`mvn test`). Ayrıca: `-Pperf test` performans bütçesi,
+**230 birim/entegrasyon testi yeşil** (`mvn test`). Ayrıca: `-Pperf test` performans bütçesi,
 `-Ppg test` PostgreSQL entegrasyonu (Testcontainers, Docker), `web && npm run e2e` Playwright
 kritik akışı (giriş → parola değişimi → panel → cari oluşturma → **randevu → GELDI + Tahsil →
 Günlük Analiz'e yansıma**). Lisans kademeli kısıtlama

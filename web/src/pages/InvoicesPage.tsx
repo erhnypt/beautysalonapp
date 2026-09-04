@@ -1,9 +1,13 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
 import { t } from "../lib/i18n";
 import { useAuth } from "../lib/auth";
+
+/** e-Fatura yalnızca satış yönlü, iptal edilmemiş faturalar için üretilebilir (Faz 8 hazırlığı). */
+const E_INVOICE_ELIGIBLE: InvoiceType[] = ["SATIS", "PERAKENDE", "IADE_SATIS"];
 
 type InvoiceType = "ALIS" | "SATIS" | "PERAKENDE" | "IADE_ALIS" | "IADE_SATIS";
 interface InvoiceView {
@@ -75,6 +79,7 @@ export function InvoicesPage() {
                 <th className="px-4 py-2 font-medium">Tarih</th>
                 <th className="px-4 py-2 text-right font-medium">Tutar</th>
                 <th className="px-4 py-2 font-medium">Durum</th>
+                <th className="px-4 py-2 font-medium">e-Fatura</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -87,11 +92,24 @@ export function InvoicesPage() {
                   <td className="px-4 py-2">
                     <span className={`rounded px-1.5 py-0.5 text-xs ${chip[i.status]}`}>{i.status}</span>
                   </td>
+                  <td className="px-4 py-2">
+                    {has("INVOICE_EDIT") && i.status !== "VOIDED" && E_INVOICE_ELIGIBLE.includes(i.type) ? (
+                      <a
+                        href={`/api/v1/invoices/${i.id}/e-fatura`}
+                        className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline"
+                        title="UBL-TR XML indir (hazırlık — otomatik gönderim yapılmaz)"
+                      >
+                        <Download size={14} /> XML
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {list.data.content.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
                     {t.common.noRecords}
                   </td>
                 </tr>

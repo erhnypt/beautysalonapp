@@ -123,4 +123,8 @@ public class Invoice extends BaseEntity {
     public void setNotes(String notes) { this.notes = notes; }
     public String getVoidReason() { return voidReason; }
     public void setVoidReason(String voidReason) { this.voidReason = voidReason; }
+    public String getEinvoiceUuid() { return einvoiceUuid; }
+    public void setEinvoiceUuid(String einvoiceUuid) { this.einvoiceUuid = einvoiceUuid; }
+    public String getEinvoiceStatus() { return einvoiceStatus; }
+    public void setEinvoiceStatus(String einvoiceStatus) { this.einvoiceStatus = einvoiceStatus; }
 }

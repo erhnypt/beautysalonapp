@@ -188,6 +188,23 @@ public class PartyService implements PartyDirectory {
                 p.isAnonymized(), p.getBirthDate(), p.getWeddingAnniversary()));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<EInvoiceParty> eInvoiceInfo(long partyId) {
+        return parties.findById(partyId).map(p -> {
+            PartyAddress addr = addresses.findAllByPartyIdAndDeletedFalse(partyId).stream()
+                    .filter(PartyAddress::isDefault)
+                    .findFirst()
+                    .or(() -> addresses.findAllByPartyIdAndDeletedFalse(partyId).stream().findFirst())
+                    .orElse(null);
+            return new EInvoiceParty(p.getId(), p.getTitle(), p.getTaxId(), p.getTcNo(),
+                    addr == null ? null : addr.getAddress(),
+                    addr == null ? null : addr.getCity(),
+                    addr == null ? null : addr.getDistrict(),
+                    addr == null ? null : addr.getPostcode());
+        });
+    }
+
     private PartyRef toRef(Party p) {
         return new PartyRef(p.getId(), p.getCode(), p.getType(), p.getTitle(), p.isAnonymized());
     }

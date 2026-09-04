@@ -20,7 +20,15 @@ public interface PartyDirectory {
     /** Bildirim modülü için: çözülmüş iletişim + izin bilgisi. */
     java.util.Optional<PartyContact> contact(long partyId);
 
+    /** Fatura/e-Fatura hazırlığı için: vergi kimliği + varsayılan adres (Faz 8). */
+    java.util.Optional<EInvoiceParty> eInvoiceInfo(long partyId);
+
     record PartyRef(long id, String code, PartyType type, String title, boolean anonymized) {}
+
+    record EInvoiceParty(
+            long id, String title, String taxId, String tcNo,
+            String address, String city, String district, String postcode) {
+    }
 
     record PartyContact(
             long id, String displayName, String phone, String email,
