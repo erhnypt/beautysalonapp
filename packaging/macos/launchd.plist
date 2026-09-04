@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  macOS launchd daemon — ALTERNATİF yol.
+
+  jpackage 21+ `--launcher-as-service` bu plist'i /Library/LaunchDaemons altına
+  kendisi kurar (build-all.sh varsayılanı). Elle kurulum / özelleştirme için referans:
+
+    sudo cp launchd.plist /Library/LaunchDaemons/com.beautysalonapp.app.plist
+    sudo launchctl load -w /Library/LaunchDaemons/com.beautysalonapp.app.plist
+
+  Yol varsayımı: /Applications/BeautySalonApp.app (§5.2).
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.beautysalonapp.app</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/BeautySalonApp.app/Contents/MacOS/BeautySalonApp</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SPRING_PROFILES_ACTIVE</key>
+        <string>packaged</string>
+        <key>JAVA_TOOL_OPTIONS</key>
+        <string>-Dbeautysalonapp.packaged=true -Xss1m -XX:MaxRAMPercentage=50</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Library/Application Support/BeautySalonApp/logs/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Library/Application Support/BeautySalonApp/logs/stderr.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>Nice</key>
+    <integer>1</integer>
+</dict>
+</plist>

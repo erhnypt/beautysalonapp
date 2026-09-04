@@ -1,0 +1,42 @@
+<!--
+  WinSW (https://github.com/winsw/winsw) servis yapılandırması — ALTERNATİF yol.
+
+  jpackage 21+ `--launcher-as-service` ile yerleşik servis kurar (build-all.sh varsayılanı).
+  Daha fazla kontrol isteyen ekipler için (log rotasyonu, yeniden başlatma politikası,
+  ortam değişkenleri) WinSW tercih edilebilir:
+
+    1. WinSW-x64.exe'yi indirin, "BeautySalonAppService.exe" olarak yeniden adlandırın.
+    2. Bu dosyayı "BeautySalonAppService.xml" olarak yanına koyun.
+    3. Kurulumdan sonra:  BeautySalonAppService.exe install  &&  BeautySalonAppService.exe start
+    4. jpackage.args içinden `--launcher-as-service` satırını kaldırın; MSI'ye WinSW dosyalarını
+       eklemek için packaging/windows/wix/overrides.wxi kullanın.
+
+  Yol varsayımı: uygulama "C:\Program Files\BeautySalonApp\" altına kuruludur (§5.2).
+-->
+<service>
+  <id>BeautySalonApp</id>
+  <name>BeautySalonApp Yerel Sunucu</name>
+  <description>Güzellik merkezi yönetim yazılımı yerel servisi (127.0.0.1:8734).</description>
+
+  <!-- jpackage'ın ürettiği native launcher; java -jar'a gerek yok. -->
+  <executable>%BASE%\BeautySalonApp.exe</executable>
+
+  <onfailure action="restart" delay="10 sec"/>
+  <onfailure action="restart" delay="20 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <log mode="roll-by-size-time">
+    <sizeThreshold>20480</sizeThreshold>
+    <pattern>yyyyMMdd</pattern>
+    <autoRollAtTime>00:00:00</autoRollAtTime>
+    <keepFiles>30</keepFiles>
+  </log>
+  <logpath>%ProgramData%\BeautySalonApp\logs</logpath>
+
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+
+  <!-- Uygulama profili + veri kökü (§5.2). -->
+  <env name="SPRING_PROFILES_ACTIVE" value="packaged"/>
+  <env name="JAVA_TOOL_OPTIONS" value="-Dbeautysalonapp.packaged=true -Xss1m -XX:MaxRAMPercentage=50"/>
+</service>

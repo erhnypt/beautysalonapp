@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hardened Runtime entitlements — codesign ve notarization için gerekli (§7.2).
+  Java uygulamaları JIT ve yansıma nedeniyle bu izinlere ihtiyaç duyar.
+  packaging/scripts/sign.sh bu dosyayı codesign --entitlements ile kullanır.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- JVM JIT için (yazılabilir + çalıştırılabilir bellek) -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- Bazı JDK dağıtımları imzasız kütüphane yükler -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- DYLD ortam değişkenleri (launcher) -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <!-- Ağ: yerel sunucu + lisans heartbeat / SMTP / SMS -->
+    <key>com.apple.security.network.server</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>

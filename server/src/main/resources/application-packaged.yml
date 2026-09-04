@@ -1,0 +1,32 @@
+# Paketlenmiş kurulum profili (jpackage launcher: -Dspring.profiles.active=packaged).
+# Veri kökü AppProperties.resolvePackagedDataDir() tarafından OS standardına taşınır (§5.2).
+spring:
+  datasource:
+    # H2 file mode — dosya <dataDir>/data altında. AppProperties data-dir'i çözdükten sonra
+    # ${beautysalonapp.data-dir} bu URL'de doğru değeri verir.
+    url: jdbc:h2:file:${beautysalonapp.data-dir}/data/beautysalonapp;AUTO_SERVER=TRUE;MODE=LEGACY
+
+server:
+  address: 127.0.0.1        # yalnızca yerel makine (§8.1). LAN, kurulum sihirbazından açılır.
+  port: 8734
+
+logging:
+  file:
+    name: ${beautysalonapp.data-dir}/logs/beautysalonapp.log
+  logback:
+    rollingpolicy:
+      max-history: 30
+      max-file-size: 20MB
+  level:
+    root: INFO
+
+beautysalonapp:
+  data-dir: ./run-data       # resolvePackagedDataDir bunu OS yoluna çevirir
+  lan-access-enabled: false
+  licensing:
+    # ÜRETİM BUILD'İNDE lisans sunucusunun public key'i buraya gömülür.
+    public-key-base64: "@LICENSE_PUBLIC_KEY@"
+    heartbeat-enabled: true
+  backup:
+    dir: ${beautysalonapp.data-dir}/backups
+    scheduled-enabled: true

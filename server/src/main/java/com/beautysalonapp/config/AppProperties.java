@@ -25,11 +25,32 @@ public class AppProperties {
     private String dataDir = "./run-data";
 
     /**
-     * İlk açılışta kurulum kimliğini {@code <dataDir>/config/install-id} dosyasından okur
-     * veya üretir. Diğer bean'ler (MonotonicClock, FingerprintService) oluşmadan çalışır.
+     * Paketlenmiş kurulumda ({@code -Dbeautysalonapp.packaged=true}) ve {@code data-dir}
+     * varsayılan bırakılmışsa, veri kökünü işletim sistemi standardına taşır (§5.2).
+     * jpackage launcher'ı bu system property'yi geçer.
+     */
+    private void resolvePackagedDataDir() {
+        if (!Boolean.getBoolean("beautysalonapp.packaged") || !"./run-data".equals(dataDir)) {
+            return;
+        }
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("win")) {
+            String pd = System.getenv("ProgramData");
+            dataDir = (pd != null && !pd.isBlank() ? pd : "C:\\ProgramData") + "\\BeautySalonApp";
+        } else if (os.contains("mac")) {
+            dataDir = "/Library/Application Support/BeautySalonApp";
+        } else {
+            dataDir = "/var/lib/beautysalonapp";
+        }
+    }
+
+    /**
+     * İlk açılışta veri kökünü çözer ve kurulum kimliğini {@code <dataDir>/config/install-id}
+     * dosyasından okur/üretir. Diğer bean'ler (MonotonicClock, FingerprintService) oluşmadan çalışır.
      */
     @PostConstruct
-    void ensureInstallId() {
+    void init() {
+        resolvePackagedDataDir();
         if (installId != null && !installId.isBlank()) {
             return;
         }

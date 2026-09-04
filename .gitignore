@@ -27,11 +27,15 @@ Thumbs.db
 
 # Runtime data (asla commit edilmez)
 /run-data/
+run-data/
 *.mv.db
 *.trace.db
 /server/data/
 /server/backups/
 /server/logs/
+
+# Paketleme çıktıları
+/packaging/dist/
 
 # Secrets
 *.pem

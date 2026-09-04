@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  jpackage WiX override (packaging/windows/wix, --resource-dir ile verilir).
+  jpackage bu dosyayı ana .wxs'e include eder. Amaç:
+
+  * %ProgramData%\BeautySalonApp\{data,config,backups,logs,attachments} klasörlerini
+    kurulumda oluşturmak (yedek klasörü ASLA Program Files içinde olmasın — §11.2).
+  * Sessiz kurulum property'lerini (LICENSE_KEY, INSTALL_MODE, BACKUP_DIR) bir
+    activation.properties dosyasına yazmak (§5.4). Uygulama ilk açılışta bunu okuyup
+    online aktivasyonu dener, sonra dosyayı siler.
+
+  NOT: Property→dosya yazımı bir WiX CustomAction gerektirir; aşağıdaki iskelet
+  tamamlanmalıdır (WixUtilExtension / basit bir "WriteIniValues" ya da CAQuietExec).
+  Bu dosya bilinçli olarak yorum ağırlıklıdır; paketleme mühendisi tamamlar.
+-->
+<Include>
+  <!-- Sessiz kurulum property'leri (msiexec /qn LICENSE_KEY=... vb.) -->
+  <Property Id="LICENSE_KEY" Secure="yes"/>
+  <Property Id="INSTALL_MODE" Value="SINGLE" Secure="yes"/>
+  <Property Id="BACKUP_DIR" Secure="yes"/>
+  <Property Id="LAN_ACCESS" Value="0" Secure="yes"/>
+
+  <!-- ProgramData veri dizinleri -->
+  <?define DataRoot = "[CommonAppDataFolder]BeautySalonApp" ?>
+
+  <DirectoryRef Id="TARGETDIR">
+    <Directory Id="CommonAppDataFolder">
+      <Directory Id="BSA_DATA_ROOT" Name="BeautySalonApp">
+        <Directory Id="BSA_DATA"        Name="data"/>
+        <Directory Id="BSA_CONFIG"      Name="config"/>
+        <Directory Id="BSA_BACKUPS"     Name="backups"/>
+        <Directory Id="BSA_LOGS"        Name="logs"/>
+        <Directory Id="BSA_ATTACHMENTS" Name="attachments"/>
+      </Directory>
+    </Directory>
+  </DirectoryRef>
+
+  <ComponentGroup Id="BsaDataDirs">
+    <Component Id="BsaDataRootC" Directory="BSA_DATA_ROOT" Guid="*">
+      <CreateFolder/>
+      <RemoveFolder Id="RmBsaDataRoot" On="uninstall"/>
+      <RegistryValue Root="HKLM" Key="Software\BeautySalonApp" Name="DataRoot"
+                     Type="string" Value="$(var.DataRoot)" KeyPath="yes"/>
+    </Component>
+    <Component Id="BsaDataC"        Directory="BSA_DATA"        Guid="*"><CreateFolder/></Component>
+    <Component Id="BsaConfigC"      Directory="BSA_CONFIG"      Guid="*"><CreateFolder/></Component>
+    <Component Id="BsaBackupsC"     Directory="BSA_BACKUPS"     Guid="*"><CreateFolder/></Component>
+    <Component Id="BsaLogsC"        Directory="BSA_LOGS"        Guid="*"><CreateFolder/></Component>
+    <Component Id="BsaAttachmentsC" Directory="BSA_ATTACHMENTS" Guid="*"><CreateFolder/></Component>
+  </ComponentGroup>
+
+  <!-- TODO: activation.properties yazan CustomAction (LICENSE_KEY vб.).
+       Örn. WixUtilExtension IniFile veya "CAQuietExec" ile:
+         [BSA_CONFIG]\activation.properties  içeriği:
+           licenseKey=[LICENSE_KEY]
+           installMode=[INSTALL_MODE]
+           backupDir=[BACKUP_DIR]
+           lanAccess=[LAN_ACCESS]
+  -->
+</Include>

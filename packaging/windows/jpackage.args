@@ -1,0 +1,22 @@
+# jpackage — Windows MSI ek argümanları (build-all.sh @argfile ile okur).
+# Ortak argümanlar build-all.sh COMMON_ARGS içinde.
+
+--win-menu
+--win-menu-group
+BeautySalonApp
+--win-shortcut
+--win-shortcut-prompt
+--win-dir-chooser
+--win-per-user-install
+# ^ tek kullanıcı kurulumu; tüm makine için kaldırın (yönetici gerekir).
+
+# Servis olarak başlat (jpackage 21+ yerleşik servis; WinSW alternatifi için packaging/windows/winsw.xml)
+--win-help-url
+https://beautysalonapp.com/destek
+--win-update-url
+https://beautysalonapp.com/guncelleme
+
+# Sabit UpgradeCode — sürüm yükseltmelerinde aynı ürün olarak tanınması için ŞART.
+# Kendi GUID'inizi üretin (yalnızca bir kez!) ve burada sabitleyin:
+--win-upgrade-uuid
+6b1d1e2a-0000-4a00-9b00-beautysalon0001

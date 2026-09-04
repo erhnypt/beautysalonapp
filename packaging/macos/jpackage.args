@@ -1,0 +1,17 @@
+# jpackage — macOS DMG ek argümanları (build-all.sh @argfile ile okur).
+
+--mac-package-identifier
+com.beautysalonapp.app
+--mac-package-name
+BeautySalonApp
+
+# İmzalama: SIGN=1 ile packaging/scripts/sign.sh çağrılır. jpackage'a doğrudan imzalatmak
+# isterseniz aşağıyı açın ve MAC_SIGN_IDENTITY / entitlements sağlayın:
+# --mac-sign
+# --mac-signing-key-user-name
+# Developer ID Application: Your Company (TEAMID)
+# --mac-entitlements
+# packaging/macos/entitlements.plist
+
+# DMG arka planı / pencere düzeni istenirse:
+# --resource-dir packaging/macos/dmg-resources

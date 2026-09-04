@@ -1,0 +1,20 @@
+<!--
+  jpackage Info.plist'i kendisi üretir. Aşağıdaki anahtarları eklemek isterseniz
+  jpackage'a `--resource-dir packaging/macos` verip bu dizine "Info.plist" şablonu
+  koyun (jpackage varsayılan şablonunu kopyalayıp düzenleyin). Sık istenenler:
+-->
+<!-- Arka plan servisi olduğundan Dock'ta görünmesin: -->
+<key>LSUIElement</key>
+<true/>
+
+<!-- Minimum macOS sürümü (§1.1: macOS destekli). Apple Silicon + Intel: -->
+<key>LSMinimumSystemVersion</key>
+<string>12.0</string>
+
+<!-- Uygulama kategorisi -->
+<key>LSApplicationCategoryType</key>
+<string>public.app-category.business</string>
+
+<!-- Yerel ağ erişimi açıklaması (LAN erişimi ayarı açılırsa) -->
+<key>NSLocalNetworkUsageDescription</key>
+<string>Aynı ağdaki ikinci bir terminalin (resepsiyon tableti) bağlanabilmesi için.</string>
