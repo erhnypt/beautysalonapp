@@ -10,4 +10,7 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
     Optional<Warehouse> findByBranchIdAndCode(Long branchId, String code);
     List<Warehouse> findAllByDeletedFalseOrderByCode();
     Optional<Warehouse> findFirstByIsDefaultTrue();
+
+    /** Faz 8 tam şube izolasyonu (ADR 0006): şubeye özel depo listesi/varsayılan çözümü için. */
+    List<Warehouse> findAllByBranchIdAndDeletedFalseOrderByCode(Long branchId);
 }

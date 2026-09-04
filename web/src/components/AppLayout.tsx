@@ -25,6 +25,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { t } from "../lib/i18n";
 import { LicenseBanner } from "./LicenseBanner";
+import { BranchSwitcher } from "./BranchSwitcher";
 import { useState, type ReactNode } from "react";
 
 interface NavItem {
@@ -96,6 +97,7 @@ export function AppLayout() {
             <X size={18} />
           </button>
         </div>
+        <BranchSwitcher />
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2">
           {visible.map((it) => (
             <NavLink

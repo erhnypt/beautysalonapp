@@ -1,18 +1,23 @@
 package com.beautysalonapp.modules.branch.application;
 
 import com.beautysalonapp.audit.application.AuditService;
+import com.beautysalonapp.core.context.BranchContextHolder;
 import com.beautysalonapp.core.error.BusinessRuleException;
 import com.beautysalonapp.core.error.NotFoundException;
 import com.beautysalonapp.modules.branch.domain.Branch;
 import com.beautysalonapp.modules.branch.infrastructure.BranchRepository;
+import com.beautysalonapp.modules.finance.application.FinanceService;
+import com.beautysalonapp.modules.finance.domain.FinAccountKind;
+import com.beautysalonapp.modules.stock.application.StockService;
+import com.beautysalonapp.modules.stock.domain.WarehouseType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 /**
- * Şube tanımlama ve merkezi görünürlük (Faz 8 "merkezi işletme" şeması).
- * Kapsam: docs/adr/0006-merkezi-sube.md.
+ * Şube tanımlama ve merkezi görünürlük (Faz 8 "merkezi işletme" şeması, tam yazma izolasyonu
+ * için bkz. ADR 0006 "sonraki adım").
  */
 @Service
 @Transactional
@@ -20,10 +25,14 @@ public class BranchService {
 
     private final BranchRepository branches;
     private final AuditService audit;
+    private final StockService stock;
+    private final FinanceService finance;
 
-    public BranchService(BranchRepository branches, AuditService audit) {
+    public BranchService(BranchRepository branches, AuditService audit, StockService stock, FinanceService finance) {
         this.branches = branches;
         this.audit = audit;
+        this.stock = stock;
+        this.finance = finance;
     }
 
     @Transactional(readOnly = true)
@@ -52,7 +61,30 @@ public class BranchService {
         b.setHeadquarters(branches.countByDeletedFalse() == 0); // ilk şube otomatik merkez
         branches.save(b);
         audit.record("BRANCH_CREATE", "Branch", b.getCode(), "Şube tanımlandı: " + b.getTitle());
+        provisionDefaults(b);
         return b;
+    }
+
+    /**
+     * Faz 8 tam şube izolasyonu (ADR 0006): yeni şube için kendi varsayılan deposunu ve kasa
+     * hesabını açar. {@code makeDefault=false} ile çağrılır ki merkez şubenin (id=1) global
+     * varsayılan bayrağı bozulmasın — yeni şubenin kaynakları {@code branch_id} eşleşmesiyle
+     * bulunur ({@code isDefault} bayrağıyla değil, bkz. {@code StockService.branchWarehouse}).
+     * Kod çakışmasını önlemek için şube koduna göre türetilir (şube kodları benzersizdir).
+     */
+    private void provisionDefaults(Branch b) {
+        BranchContextHolder.set(b.getId());
+        try {
+            // warehouse.code / fin_account.code VARCHAR(20); "D-"/"K-" + şube kodu (max 20)
+            // sığması için kısaltılır — şube kodu tek başına benzersiz olduğundan yine benzersizdir.
+            String suffix = b.getCode().length() > 18 ? b.getCode().substring(0, 18) : b.getCode();
+            stock.createWarehouse("D-" + suffix, "Depo (" + b.getTitle() + ")",
+                    WarehouseType.WAREHOUSE, false);
+            finance.createAccount("K-" + suffix, "Kasa (" + b.getTitle() + ")",
+                    FinAccountKind.KASA, "TRY", null, false);
+        } finally {
+            BranchContextHolder.clear();
+        }
     }
 
     public Branch update(long id, String title, String taxId, String address, String phone) {

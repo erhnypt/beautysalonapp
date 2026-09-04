@@ -12,4 +12,7 @@ public interface FinAccountRepository extends JpaRepository<FinAccount, Long> {
     List<FinAccount> findAllByDeletedFalseOrderByKindAscCodeAsc();
     Optional<FinAccount> findFirstByKindAndIsDefaultTrue(FinAccountKind kind);
     Optional<FinAccount> findFirstByKindAndActiveTrueOrderByIdAsc(FinAccountKind kind);
+
+    /** Faz 8 tam şube izolasyonu (ADR 0006): şubeye özel hesap çözümü için. */
+    Optional<FinAccount> findFirstByBranchIdAndKindAndActiveTrueOrderByIdAsc(Long branchId, FinAccountKind kind);
 }

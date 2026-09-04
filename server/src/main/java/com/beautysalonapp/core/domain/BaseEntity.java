@@ -1,11 +1,13 @@
 package com.beautysalonapp.core.domain;
 
+import com.beautysalonapp.core.context.BranchContextHolder;
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Version;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
@@ -72,4 +74,18 @@ public abstract class BaseEntity {
     public String getUpdatedBy() { return updatedBy; }
 
     public boolean isNew() { return id == null; }
+
+    /**
+     * Faz 8 tam şube izolasyonu (ADR 0006): kayıt anında bir "aktif şube" bağlamı varsa
+     * (ör. {@code X-Branch-Id} isteği), {@code branchId} bununla etiketlenir. Bağlam yoksa
+     * (arka plan işi, test, başlık göndermeyen eski istemci) alan sınıf varsayılanında
+     * ({@code 1L}) kalır — v1 tek şube davranışı **değişmez**.
+     */
+    @PrePersist
+    void assignActiveBranch() {
+        Long active = BranchContextHolder.get();
+        if (active != null) {
+            this.branchId = active;
+        }
+    }
 }

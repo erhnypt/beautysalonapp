@@ -1,6 +1,7 @@
 package com.beautysalonapp.config;
 
 import com.beautysalonapp.licensing.LicenseEnforcementFilter;
+import com.beautysalonapp.modules.branch.web.BranchContextFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,8 @@ import org.springframework.security.web.header.writers.StaticHeadersWriter;
  *   <li>SPA için token tabanlı CSRF (çerezden okunur, header ile geri gönderilir).</li>
  *   <li>Parola karması BCrypt cost 12.</li>
  *   <li>Lisans kısıtlaması: {@link LicenseEnforcementFilter} yazma isteklerini READ_ONLY/LOCKED'te reddeder.</li>
+ *   <li>Şube bağlamı: {@link BranchContextFilter} {@code X-Branch-Id} başlığını doğrulayıp
+ *       istek süresince aktif şubeyi taşır (Faz 8 tam şube izolasyonu, ADR 0006).</li>
  * </ul>
  */
 @Configuration
@@ -45,7 +48,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           LicenseEnforcementFilter licenseFilter) throws Exception {
+                                           LicenseEnforcementFilter licenseFilter,
+                                           BranchContextFilter branchContextFilter) throws Exception {
         var csrfHandler = new CsrfTokenRequestAttributeHandler();
 
         http
@@ -83,7 +87,8 @@ public class SecurityConfig {
             .formLogin(form -> form.disable())
             .httpBasic(basic -> basic.disable())
             .logout(logout -> logout.disable())
-            .addFilterAfter(licenseFilter, BasicAuthenticationFilter.class);
+            .addFilterAfter(licenseFilter, BasicAuthenticationFilter.class)
+            .addFilterAfter(branchContextFilter, LicenseEnforcementFilter.class);
 
         return http.build();
     }

@@ -63,8 +63,11 @@ class ReportServiceTest {
         ServiceDefinition svc = appts.createService("RPT-" + System.nanoTime() % 1_000_000L,
                 "Rapor Hizmeti", 30, new BigDecimal("250"), 0, 0, false);
 
+        // Not: gün ortasında/gece yarısına yakın çalıştırıldığında "+1 saat" Europe/Istanbul
+        // takviminde ertesi güne geçip "bugün" raporundan düşebilir (flaky) — bu yüzden
+        // ofsetsiz, doğrudan şu an için randevu alınır.
         var appt = appts.book(new BookCommand(cust, staff, null, svc.getId(),
-                Instant.now().plusSeconds(3600), null, null, null));
+                Instant.now(), null, null, null));
         appts.changeStatus(appt.getId(), new StatusChange(AppointmentStatus.GELDI, false, null));
 
         var d = reports.today();

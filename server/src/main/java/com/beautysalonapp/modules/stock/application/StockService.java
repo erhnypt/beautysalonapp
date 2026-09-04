@@ -1,6 +1,7 @@
 package com.beautysalonapp.modules.stock.application;
 
 import com.beautysalonapp.audit.application.AuditService;
+import com.beautysalonapp.core.context.BranchContextHolder;
 import com.beautysalonapp.core.error.BusinessRuleException;
 import com.beautysalonapp.core.error.NotFoundException;
 import com.beautysalonapp.core.sequence.SequenceService;
@@ -34,6 +35,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -260,17 +262,38 @@ public class StockService implements StockPort {
     @Override
     @Transactional(readOnly = true)
     public long defaultWarehouseId() {
-        return defaultWarehouse().getId();
+        return branchWarehouse(WarehouseType.WAREHOUSE).map(Warehouse::getId)
+                .orElseGet(() -> defaultWarehouse().getId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public long consumptionWarehouseId() {
-        return warehouses.findByBranchIdAndCode(BRANCH, "SARF")
-                .or(() -> warehouses.findAllByDeletedFalseOrderByCode().stream()
-                        .filter(w -> w.getType() == WarehouseType.CONSUMPTION).findFirst())
-                .orElseGet(this::defaultWarehouse)
-                .getId();
+        return branchWarehouse(WarehouseType.CONSUMPTION).map(Warehouse::getId)
+                .orElseGet(() -> warehouses.findByBranchIdAndCode(BRANCH, "SARF")
+                        .or(() -> warehouses.findAllByDeletedFalseOrderByCode().stream()
+                                .filter(w -> w.getType() == WarehouseType.CONSUMPTION).findFirst())
+                        .orElseGet(this::defaultWarehouse)
+                        .getId());
+    }
+
+    /**
+     * Faz 8 tam şube izolasyonu (ADR 0006): aktif şube 1 (merkez/v1) ise {@code Optional.empty()}
+     * döner ve çağıran taraf **aynen eski global çözüme** düşer — davranış değişmez. Aktif şube
+     * gerçekten yeni bir şube ise (id ≠ 1), o şubeye ait depolar arasından önce istenen türde,
+     * yoksa herhangi bir depo aranır; şubenin hiç deposu yoksa yine global çözüme düşülür
+     * (ör. bu özellik eklenmeden önce oluşturulmuş bir şube).
+     */
+    private Optional<Warehouse> branchWarehouse(WarehouseType preferredType) {
+        long active = BranchContextHolder.getOrDefault();
+        if (active == 1L) {
+            return Optional.empty();
+        }
+        List<Warehouse> ws = warehouses.findAllByBranchIdAndDeletedFalseOrderByCode(active);
+        if (ws.isEmpty()) {
+            return Optional.empty();
+        }
+        return ws.stream().filter(w -> w.getType() == preferredType).findFirst().or(() -> Optional.of(ws.get(0)));
     }
 
     @Override

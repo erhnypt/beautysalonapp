@@ -1,5 +1,8 @@
 // Tek merkezî API istemcisi. Aynı origin (üretim) veya Vite proxy (geliştirme).
 // Oturum çerezi + CSRF token (XSRF-TOKEN çerezi → X-XSRF-TOKEN başlığı).
+// Faz 8 tam şube izolasyonu (ADR 0006): aktif şube seçiliyse X-Branch-Id eklenir.
+
+import { getActiveBranchId } from "./branch";
 
 export class ApiError extends Error {
   status: number;
@@ -40,6 +43,9 @@ export async function api<T = unknown>(path: string, opts: Options = {}): Promis
   const method = (opts.method ?? "GET").toUpperCase();
   const headers = new Headers(opts.headers);
   const mutating = method !== "GET" && method !== "HEAD";
+
+  const activeBranch = getActiveBranchId();
+  if (activeBranch != null) headers.set("X-Branch-Id", String(activeBranch));
 
   if (mutating) {
     await ensureCsrf();

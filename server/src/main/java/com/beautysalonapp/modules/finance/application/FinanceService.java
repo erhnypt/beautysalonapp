@@ -1,6 +1,7 @@
 package com.beautysalonapp.modules.finance.application;
 
 import com.beautysalonapp.audit.application.AuditService;
+import com.beautysalonapp.core.context.BranchContextHolder;
 import com.beautysalonapp.core.domain.Money;
 import com.beautysalonapp.core.error.BusinessRuleException;
 import com.beautysalonapp.core.error.NotFoundException;
@@ -165,6 +166,16 @@ public class FinanceService implements FinancePort {
     @Override
     @Transactional(readOnly = true)
     public long defaultCashAccountId() {
+        // Faz 8 tam şube izolasyonu (ADR 0006): aktif şube 1 (merkez/v1) ise eski global
+        // çözüme aynen düşülür — davranış değişmez. Gerçek bir şube (id ≠ 1) aktifse önce
+        // o şubenin kendi KASA hesabı aranır; yoksa yine global çözüme düşülür.
+        long active = BranchContextHolder.getOrDefault();
+        if (active != 1L) {
+            var branchAccount = accounts.findFirstByBranchIdAndKindAndActiveTrueOrderByIdAsc(active, FinAccountKind.KASA);
+            if (branchAccount.isPresent()) {
+                return branchAccount.get().getId();
+            }
+        }
         return accounts.findFirstByKindAndIsDefaultTrue(FinAccountKind.KASA)
                 .or(() -> accounts.findFirstByKindAndActiveTrueOrderByIdAsc(FinAccountKind.KASA))
                 .orElseThrow(() -> new BusinessRuleException("no_cash_account", "Tanımlı kasa hesabı yok"))
