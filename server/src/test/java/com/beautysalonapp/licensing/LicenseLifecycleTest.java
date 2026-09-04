@@ -2,7 +2,6 @@ package com.beautysalonapp.licensing;
 
 import com.beautysalonapp.core.error.LicenseRestrictionException;
 import com.beautysalonapp.licensing.application.LicenseService;
-import com.beautysalonapp.licensing.application.MonotonicClock;
 import com.beautysalonapp.licensing.domain.LicensePayload;
 import com.beautysalonapp.licensing.domain.LicensePlan;
 import com.beautysalonapp.licensing.domain.LicenseStatus;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -34,15 +32,14 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
 
 /**
  * Lisans kademeli kısıtlama merdiveninin (§6.4) tüm durum geçişleri —
  * plan §18: "Sahte saat, bozuk imza, süresi geçmiş lisans ... Tüm durum geçişleri".
  *
- * <p>Gerçek {@link MonotonicClock} yerine sahte saat ({@code @MockBean}) enjekte edilir;
- * {@code LicenseVerifier} bu testin ürettiği Ed25519 anahtar çiftiyle çalışsın diye
- * public key {@code @DynamicPropertySource} ile verilir.
+ * Gerçek {@code MonotonicClock} kullanılır; lisans tarihleri {@code Instant.now()}'a görelidir
+ * (mock yok → Byte Buddy/JDK sürüm bağımlılığı yok). {@code LicenseVerifier} bu testin ürettiği
+ * Ed25519 anahtar çiftiyle çalışsın diye public key {@code @DynamicPropertySource} ile verilir.
  */
 @SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -50,7 +47,6 @@ class LicenseLifecycleTest {
 
     private static final Ed25519PrivateKeyParameters PRIV;
     private static final String PUB_B64;
-    private static final Instant NOW = Instant.parse("2026-09-04T09:00:00Z");
 
     static {
         var gen = new Ed25519KeyPairGenerator();
@@ -66,9 +62,6 @@ class LicenseLifecycleTest {
         registry.add("beautysalonapp.licensing.public-key-base64", () -> PUB_B64);
     }
 
-    @MockBean
-    private MonotonicClock clock;
-
     @Autowired
     private LicenseService licenseService;
 
@@ -78,10 +71,13 @@ class LicenseLifecycleTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    /** Her testte 'şimdi' — lisans tarihleri buna göre kurulur. */
+    private Instant now;
+
     @BeforeEach
     @Transactional
     void reset() {
-        when(clock.now()).thenReturn(NOW);
+        now = Instant.now();
         LicenseState st = stateRepo.singleton();
         st.setLicenseBlob(null);
         st.setServerStatus("ACTIVE");
@@ -98,7 +94,7 @@ class LicenseLifecycleTest {
         try {
             LicensePayload p = new LicensePayload(
                     1, "LIC-TEST", "Test Salon", "1234567890", LicensePlan.PRO,
-                    NOW.minus(400, ChronoUnit.DAYS), NOW.minus(400, ChronoUnit.DAYS), notAfter,
+                    now.minus(400, ChronoUnit.DAYS), now.minus(400, ChronoUnit.DAYS), notAfter,
                     graceDays, List.of(ModuleCode.values()), null, List.of(), null, offline);
             byte[] json = objectMapper.writeValueAsString(p).getBytes(StandardCharsets.UTF_8);
             var signer = new Ed25519Signer();
@@ -131,28 +127,28 @@ class LicenseLifecycleTest {
 
     @Test
     void gecerli_lisans_ACTIVE() {
-        install(NOW.plus(60, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
+        install(now.plus(60, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
         assertThat(status()).isEqualTo(LicenseStatus.ACTIVE);
         assertThat(licenseService.snapshot().writesBlocked()).isFalse();
     }
 
     @Test
     void bitise_yedi_gunden_az_EXPIRING() {
-        install(NOW.plus(5, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
+        install(now.plus(5, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
         assertThat(status()).isEqualTo(LicenseStatus.EXPIRING);
         assertThat(licenseService.snapshot().writesBlocked()).isFalse();
     }
 
     @Test
     void sure_doldu_grace_icinde_GRACE() {
-        install(NOW.minus(2, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
+        install(now.minus(2, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
         assertThat(status()).isEqualTo(LicenseStatus.GRACE);
         assertThat(licenseService.snapshot().writesBlocked()).isFalse();
     }
 
     @Test
     void grace_bitti_READ_ONLY_ve_yazma_kilitli() {
-        install(NOW.minus(20, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
+        install(now.minus(20, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
         assertThat(status()).isEqualTo(LicenseStatus.READ_ONLY);
         assertThat(licenseService.snapshot().writesBlocked()).isTrue();
         assertThatThrownBy(() -> licenseService.assertWritable())
@@ -164,7 +160,7 @@ class LicenseLifecycleTest {
     @Test
     void read_only_suresi_asilinca_LOCKED() {
         // readOnlyDays varsayılan 30 (application.yml) — 40 gün önce READ_ONLY'e düşmüş
-        install(NOW.minus(60, ChronoUnit.DAYS), 7, false, "ACTIVE", NOW.minus(40, ChronoUnit.DAYS));
+        install(now.minus(60, ChronoUnit.DAYS), 7, false, "ACTIVE", now.minus(40, ChronoUnit.DAYS));
         assertThat(status()).isEqualTo(LicenseStatus.LOCKED);
         assertThat(licenseService.snapshot().writesBlocked()).isTrue();
         // LOCKED'te bile modül görünürlüğü (dışa aktarma) korunur
@@ -173,20 +169,20 @@ class LicenseLifecycleTest {
 
     @Test
     void sunucu_REVOKED_LOCKED() {
-        install(NOW.plus(60, ChronoUnit.DAYS), 7, false, "REVOKED", null);
+        install(now.plus(60, ChronoUnit.DAYS), 7, false, "REVOKED", null);
         assertThat(status()).isEqualTo(LicenseStatus.LOCKED);
     }
 
     @Test
     void sunucu_SUSPENDED_READ_ONLY() {
-        install(NOW.plus(60, ChronoUnit.DAYS), 7, false, "SUSPENDED", null);
+        install(now.plus(60, ChronoUnit.DAYS), 7, false, "SUSPENDED", null);
         assertThat(status()).isEqualTo(LicenseStatus.READ_ONLY);
         assertThat(licenseService.snapshot().writesBlocked()).isTrue();
     }
 
     @Test
     void bozuk_imza_kurcalama_bayragini_kaldirir_ve_TAMPERED_e_gecer() {
-        install(NOW.plus(60, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
+        install(now.plus(60, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
         LicenseState st = stateRepo.singleton();
         String good = st.getLicenseBlob();
         // gövdeyi boz: ilk segmentin son karakterini değiştir
@@ -209,7 +205,7 @@ class LicenseLifecycleTest {
 
     @Test
     void saat_geri_alindi_tamper_bayragi_TAMPERED() {
-        install(NOW.plus(60, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
+        install(now.plus(60, ChronoUnit.DAYS), 7, false, "ACTIVE", null);
         // MonotonicClock gerçek hayatta bu bayrağı set eder; burada onu taklit ediyoruz
         LicenseState st = stateRepo.singleton();
         st.setTamperFlag(true);
@@ -223,7 +219,7 @@ class LicenseLifecycleTest {
     @Test
     void cevrimdisi_mod_grace_suresini_uzatir() {
         // offline=true → effectiveGraceDays en az 14; 10 gün gecikmede hâlâ GRACE
-        install(NOW.minus(10, ChronoUnit.DAYS), 3, true, "ACTIVE", null);
+        install(now.minus(10, ChronoUnit.DAYS), 3, true, "ACTIVE", null);
         assertThat(status()).isEqualTo(LicenseStatus.GRACE);
     }
 
@@ -235,7 +231,7 @@ class LicenseLifecycleTest {
         licenseService.invalidateCache();
         assertThat(status()).isEqualTo(LicenseStatus.TAMPERED);
 
-        licenseService.installLicense(buildBlob(NOW.plus(90, ChronoUnit.DAYS), 7, false));
+        licenseService.installLicense(buildBlob(now.plus(90, ChronoUnit.DAYS), 7, false));
         assertThat(status()).isEqualTo(LicenseStatus.ACTIVE);
         assertThat(stateRepo.singleton().isTamperFlag()).isFalse();
     }
