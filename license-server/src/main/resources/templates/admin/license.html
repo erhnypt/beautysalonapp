@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="tr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Lisans ' + ${lic.licenseId}">Lisans</title>
+    <link rel="stylesheet" href="/css/admin.css"/>
+</head>
+<body>
+<header>
+    <strong>Lisans <span th:text="${lic.licenseId}"></span></strong>
+    <a href="/admin">← Panele dön</a>
+</header>
+<main>
+    <div class="card">
+        <table>
+            <tr><th>Müşteri</th><td th:text="${customer != null ? customer.name : lic.customerId}"></td></tr>
+            <tr><th>Aktivasyon Anahtarı</th><td><code th:text="${lic.activationKey}"></code></td></tr>
+            <tr><th>Durum</th><td><span th:class="'badge ' + ${lic.status}" th:text="${lic.status}"></span></td></tr>
+            <tr><th>Plan / Modüller</th><td><span th:text="${lic.plan}"></span> — <code th:text="${lic.modules}"></code></td></tr>
+            <tr><th>Limitler</th><td th:text="'terminal ' + ${lic.maxTerminals} + ' · şube ' + ${lic.maxBranches} + ' · kullanıcı ' + ${lic.maxActiveUsers} + ' · müşteri ' + (${lic.maxCustomers} ?: '∞')"></td></tr>
+            <tr><th>notBefore / notAfter</th><td th:text="${lic.notBefore} + '  →  ' + ${lic.notAfter}"></td></tr>
+            <tr><th>Grace</th><td th:text="${lic.graceDays} + ' gün · çevrimdışı: ' + ${lic.offlineMode}"></td></tr>
+            <tr><th>Abonelik</th><td th:if="${subscription != null}">
+                <span th:class="'badge ' + ${subscription.status}" th:text="${subscription.status}"></span>
+                — ödendiği tarih <span th:text="${subscription.paidThrough}"></span>
+            </td></tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0">Plan / Modül Düzenle</h2>
+        <form method="post" th:action="@{'/admin/license/' + ${lic.licenseId} + '/plan'}" class="row">
+            <select name="plan">
+                <option th:each="p : ${plans}" th:value="${p}" th:text="${p}" th:selected="${p == lic.plan}"></option>
+            </select>
+            <input name="modules" size="60" th:value="${lic.modules}"/>
+            <input name="maxTerminals" type="number" th:value="${lic.maxTerminals}" style="width:80px"/>
+            <input name="maxActiveUsers" type="number" th:value="${lic.maxActiveUsers}" style="width:80px"/>
+            <button type="submit">Kaydet</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0">Makine Bağlamaları</h2>
+        <table>
+            <tr><th>Parmak İzi</th><th>fpVer</th><th>Bağlanma</th><th>Son görülme</th><th>Aktif</th></tr>
+            <tr th:each="b : ${bindings}">
+                <td><code th:text="${#strings.abbreviate(b.fingerprint,20)}"></code></td>
+                <td th:text="${b.fpVersion}"></td>
+                <td th:text="${#temporals.format(b.boundAt,'dd.MM.yyyy HH:mm')}"></td>
+                <td th:text="${b.lastSeenAt != null ? #temporals.format(b.lastSeenAt,'dd.MM.yyyy HH:mm') : '—'}"></td>
+                <td th:text="${b.active}"></td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0">Son Heartbeat'ler</h2>
+        <table>
+            <tr><th>Zaman</th><th>Sürüm</th><th>OS</th><th>Yanıt</th></tr>
+            <tr th:each="h : ${heartbeats}">
+                <td th:text="${#temporals.format(h.receivedAt,'dd.MM.yyyy HH:mm:ss')}"></td>
+                <td th:text="${h.appVersion}"></td>
+                <td th:text="${h.os}"></td>
+                <td><span th:class="'badge ' + ${h.responseStatus}" th:text="${h.responseStatus}"></span></td>
+            </tr>
+        </table>
+    </div>
+</main>
+</body>
+</html>

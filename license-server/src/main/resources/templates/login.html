@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="tr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Lisans Sunucusu — Giriş</title>
+    <link rel="stylesheet" href="/css/admin.css"/>
+</head>
+<body>
+<div class="login card">
+    <h1>Lisans Sunucusu</h1>
+    <p th:if="${param.error}" style="color:#991b1b">Kullanıcı adı veya parola hatalı.</p>
+    <p th:if="${param.logout}" style="color:#166534">Çıkış yapıldı.</p>
+    <form method="post" th:action="@{/login}">
+        <p><input type="text" name="username" placeholder="Kullanıcı adı" style="width:100%"/></p>
+        <p><input type="password" name="password" placeholder="Parola" style="width:100%"/></p>
+        <button type="submit" style="width:100%">Giriş</button>
+    </form>
+</div>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="tr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Lisans Yönetimi</title>
+    <link rel="stylesheet" href="/css/admin.css"/>
+</head>
+<body>
+<header>
+    <strong>BeautySalonApp — Lisans Sunucusu</strong>
+    <form method="post" th:action="@{/logout}" style="margin:0"><button class="ghost" type="submit">Çıkış</button></form>
+</header>
+<main>
+
+    <div class="card">
+        <h2 style="margin-top:0">Yeni Müşteri</h2>
+        <form method="post" th:action="@{/admin/customers}" class="row">
+            <input name="name" placeholder="Ünvan" required/>
+            <input name="taxId" placeholder="Vergi No"/>
+            <input name="email" placeholder="E-posta"/>
+            <input name="phone" placeholder="Telefon"/>
+            <button type="submit">Ekle</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0">Lisans Sağla</h2>
+        <form method="post" th:action="@{/admin/provision}" class="row">
+            <select name="customerId" required>
+                <option value="">Müşteri…</option>
+                <option th:each="c : ${customers}" th:value="${c.id}" th:text="${c.name}"></option>
+            </select>
+            <select name="plan">
+                <option th:each="p : ${plans}" th:value="${p}" th:text="${p}"></option>
+            </select>
+            <input name="modules" placeholder="STOCK,PARTY,FINANCE,..." size="40"
+                   value="STOCK,STAFF,PARTY,FINANCE,INVOICE,APPOINTMENT,CONTRACT,REPORTING,SMS,EMAIL,LOYALTY"/>
+            <input name="maxTerminals" type="number" value="3" style="width:70px" title="maxTerminals"/>
+            <input name="maxActiveUsers" type="number" value="10" style="width:70px" title="maxActiveUsers"/>
+            <input name="initialMonths" type="number" value="1" style="width:70px" title="ilk ay"/>
+            <input name="monthlyFee" type="number" step="0.01" value="0" style="width:90px" title="aylık ücret"/>
+            <label><input type="checkbox" name="offlineMode" value="true"/> çevrimdışı</label>
+            <button type="submit">Üret</button>
+        </form>
+    </div>
+
+    <div class="card" th:if="${!pendingTransfers.isEmpty()}">
+        <h2 style="margin-top:0">Bekleyen Transfer Talepleri</h2>
+        <table>
+            <tr><th>Lisans</th><th>Eski FP</th><th>Yeni FP</th><th>Talep</th><th></th></tr>
+            <tr th:each="tr : ${pendingTransfers}">
+                <td><code th:text="${tr.licenseId}"></code></td>
+                <td th:text="${#strings.abbreviate(tr.oldFingerprint,14)}"></td>
+                <td th:text="${#strings.abbreviate(tr.newFingerprint,14)}"></td>
+                <td th:text="${#temporals.format(tr.requestedAt,'dd.MM.yyyy HH:mm')}"></td>
+                <td>
+                    <form method="post" th:action="@{'/admin/transfer/' + ${tr.id} + '/approve'}" style="display:inline"><button>Onayla</button></form>
+                    <form method="post" th:action="@{'/admin/transfer/' + ${tr.id} + '/reject'}" style="display:inline"><button class="ghost">Reddet</button></form>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0">Lisanslar</h2>
+        <table>
+            <tr>
+                <th>Lisans No</th><th>Müşteri</th><th>Plan</th><th>Durum</th><th>Abonelik</th>
+                <th>Ödendiği tarih</th><th>Bitiş (notAfter)</th><th>Aktivasyon Anahtarı</th><th></th>
+            </tr>
+            <tr th:each="l : ${licenses}">
+                <td><a th:href="@{'/admin/license/' + ${l.licenseId}}" th:text="${l.licenseId}"></a></td>
+                <td th:with="c=${customers.stream().filter(x -> x.id == l.customerId).findFirst().orElse(null)}"
+                    th:text="${c != null ? c.name : l.customerId}"></td>
+                <td th:text="${l.plan}"></td>
+                <td><span th:class="'badge ' + ${l.status}" th:text="${l.status}"></span></td>
+                <td th:with="s=${subscriptions.stream().filter(x -> x.id == l.subscriptionId).findFirst().orElse(null)}">
+                    <span th:if="${s != null}" th:class="'badge ' + ${s.status}" th:text="${s.status}"></span>
+                    <span th:if="${s != null}">
+                        <form th:if="${s.status.name() != 'SUSPENDED'}" method="post" th:action="@{'/admin/subscription/' + ${s.id} + '/suspend'}" style="display:inline"><button class="ghost">Askıya al</button></form>
+                        <form th:if="${s.status.name() == 'SUSPENDED'}" method="post" th:action="@{'/admin/subscription/' + ${s.id} + '/reactivate'}" style="display:inline"><button>Aktive et</button></form>
+                        <form method="post" th:action="@{'/admin/subscription/' + ${s.id} + '/cancel'}" style="display:inline"><button class="ghost">İptal</button></form>
+                    </span>
+                </td>
+                <td th:with="s=${subscriptions.stream().filter(x -> x.id == l.subscriptionId).findFirst().orElse(null)}"
+                    th:text="${s != null ? s.paidThrough : ''}"></td>
+                <td th:text="${l.notAfter != null ? #temporals.format(l.notAfter,'dd.MM.yyyy') : '—'}"></td>
+                <td><code th:text="${l.activationKey}"></code></td>
+                <td th:with="s=${subscriptions.stream().filter(x -> x.id == l.subscriptionId).findFirst().orElse(null)}">
+                    <form th:if="${s != null}" method="post" th:action="@{'/admin/subscription/' + ${s.id} + '/payment'}" style="display:flex;gap:4px">
+                        <input name="amount" type="number" step="0.01" placeholder="tutar" style="width:80px"/>
+                        <input name="months" type="number" value="1" style="width:50px"/>
+                        <button>Ödeme İşle</button>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top:0">Güncelleme Kanalı (stable)</h2>
+        <form method="post" th:action="@{/admin/releases}" class="row">
+            <input name="version" placeholder="1.4.3" required/>
+            <input name="url" placeholder="https://.../beautysalonapp-1.4.3-windows-x64.msi" size="50" required/>
+            <input name="checksum" placeholder="sha256"/>
+            <label><input type="checkbox" name="mandatory" value="true"/> zorunlu</label>
+            <button type="submit">Yayın Ekle</button>
+        </form>
+        <table>
+            <tr><th>Sürüm</th><th>URL</th><th>Zorunlu</th><th>Tarih</th></tr>
+            <tr th:each="r : ${releases}">
+                <td th:text="${r.version}"></td>
+                <td><code th:text="${r.url}"></code></td>
+                <td th:text="${r.mandatory}"></td>
+                <td th:text="${#temporals.format(r.releasedAt,'dd.MM.yyyy')}"></td>
+            </tr>
+        </table>
+    </div>
+
+</main>
+</body>
+</html>
