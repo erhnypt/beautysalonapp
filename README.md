@@ -62,9 +62,11 @@ cd server && JAVA_HOME=/opt/homebrew/opt/openjdk@17 mvn verify
 | Faz 6 | SMS/e-posta bildirim (İYS kontrolü, kuyruk, tetikleyiciler), Kartlı promosyon/sadakat (PPOS) | ✅ |
 | Faz 7 | Performans harness (10 yıl / 500k), güvenlik gözden geçirme + sertleştirme, kullanım/kurulum kılavuzu, pilot planı | ✅ |
 
-**171 birim/entegrasyon testi yeşil** (`mvn test`) · **172** performans profiliyle (`mvn -Pperf test`).
-Lisans kademeli kısıtlama merdiveninin tüm durum geçişleri (`LicenseLifecycleTest`, sahte saat)
-ve tüm Flyway migration'larının temiz uygulanması (`MigrationTest`) kapsanır.
+**171 birim/entegrasyon testi yeşil** (`mvn test`). Ayrıca: `-Pperf test` performans bütçesi,
+`-Ppg test` PostgreSQL entegrasyonu (Testcontainers, Docker). Lisans kademeli kısıtlama
+merdiveninin tüm durum geçişleri (`LicenseLifecycleTest`, sahte saat), tüm Flyway
+migration'larının temiz uygulanması (`MigrationTest`) ve `common/` şemasının PostgreSQL 16'ya
+uygulanması (`PostgresIntegrationTest`) kapsanır.
 Ana iş akışı uçtan uca çalışır: cari → randevu → `GELDI` (stok sarfı + hizmet bedeli cariye +
 prim tahakkuku) → tahsilat; sözleşme → taksit planı → taksit tahsilatı; fatura (KDV/indirim,
 stok + cari + kasa tek transaction) → çek/POS.

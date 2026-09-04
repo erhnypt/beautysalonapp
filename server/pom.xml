@@ -110,6 +110,23 @@
             <version>${archunit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- PostgreSQL entegrasyon testi (plan §18, Risk #7). Sürümler Spring Boot BOM'undan.
+             Yalnızca '-Ppg' profilinde çalışır (Docker gerekir). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -131,9 +148,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!-- Faz 7 performans testleri normal 'mvn test' çalışmasından dışlanır.
-                         Çalıştırmak için: ./mvnw -Pperf test -->
-                    <excludedGroups>perf</excludedGroups>
+                    <!-- 'perf' (performans bütçesi) ve 'pg' (PostgreSQL/Testcontainers, Docker gerekir)
+                         normal 'mvn test'ten dışlanır. Çalıştırma: ./mvnw -Pperf test | ./mvnw -Ppg test -->
+                    <excludedGroups>perf,pg</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
@@ -149,7 +166,22 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <excludedGroups combine.self="override"/>
+                            <excludedGroups combine.self="override">pg</excludedGroups>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <!-- ./mvnw -Ppg test  → PostgreSQL entegrasyon testlerini de çalıştırır (Docker) -->
+        <profile>
+            <id>pg</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludedGroups combine.self="override">perf</excludedGroups>
                         </configuration>
                     </plugin>
                 </plugins>

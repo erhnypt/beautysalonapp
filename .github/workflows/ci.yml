@@ -34,6 +34,34 @@ jobs:
           path: server/target/surefire-reports/
           if-no-files-found: ignore
 
+  postgres-it:
+    name: server — PostgreSQL entegrasyon (Testcontainers)
+    runs-on: ubuntu-latest          # Docker hazır
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: '-Ppg test (Testcontainers postgres:16-alpine)'
+        working-directory: server
+        run: ./mvnw -B -ntp -Ppg test -Dtest=PostgresIntegrationTest,MigrationTest
+
+  perf-budget:
+    name: server — performans bütçesi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: '-Pperf test'
+        working-directory: server
+        run: ./mvnw -B -ntp -Pperf test -Dtest=PerformanceBudgetTest
+
   license-server:
     name: license-server — mvn verify
     runs-on: ubuntu-latest

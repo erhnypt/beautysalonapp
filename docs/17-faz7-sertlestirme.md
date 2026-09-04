@@ -59,12 +59,15 @@ hard-delete yasağı + audit, `LOCKED`'te bile dışa aktarma, İYS izin kontrol
 - [ ] `checksums.txt` üretildi ve yayın notuna eklendi
 
 ### Test
-- [x] `./mvnw test` — 171 test yeşil (server); `-Pperf` ile 172
+- [x] `./mvnw test` — 171 test yeşil (server); `-Pperf` ile 172, `-Ppg` ile +3 (Docker)
 - [x] Migration testi (`MigrationTest`): tüm Flyway betikleri boş DB'ye temiz, sürüm boşluğu yok, idempotent
 - [x] Lisans testi (`LicenseLifecycleTest`): sahte saat + tüm durum geçişleri
       (ACTIVE/EXPIRING/GRACE/READ_ONLY/LOCKED/TAMPERED/REVOKED/SUSPENDED, çevrimdışı grace)
-- [ ] `./mvnw -Pperf test` — performans bütçesi loglandı, aşım yok
+- [x] PostgreSQL entegrasyon (`PostgresIntegrationTest`, Testcontainers): `common/` şeması
+      PG 16'ya uygulanır, açılış tohumlayıcıları koşar, `NUMERIC(19,4)` ölçeği korunur — CI'da `-Ppg` job
+- [ ] `./mvnw -Pperf test` — performans bütçesi loglandı, aşım yok (CI'da `perf-budget` job)
 - [ ] license-server `./mvnw test` — yeşil (6 test)
+- [ ] E2E (Playwright) — ana akış: randevu → satış → tahsilat → rapor  *(kalan §18 satırı)*
 - [ ] Gerçek 500k tohumlamayla liste ekranları elle ölçüldü (p95 < 300 ms)
 - [ ] Temiz Windows VM + temiz macOS'ta kurulum + ilk giriş + yedek/geri-yükle çalıştı
 
@@ -100,4 +103,6 @@ hard-delete yasağı + audit, `LOCKED`'te bile dışa aktarma, İYS izin kontrol
 - Gerçek imzalı installer (Apple Developer $99/yıl, Windows EV ~$300/yıl — plan Risk #2)
 - Eğitim videoları
 - Canlı pilot ve muhasebe mutabakatı (süreç `docs/pilot/` altında kurgulandı)
-- CI'da `release.yml` (windows + macos runner matrisi, sertifikalar GitHub Secrets'ta)
+- **E2E test (Playwright)** — plan §18'in son açık satırı; çalışan sunucu + derlenmiş SPA +
+  tarayıcı indirmesi gerektirir, `release`/nightly CI job olarak kurulmalı
+- `release.yml` çalıştırması için sertifika secret'ları (aksi halde imzasız artefakt)
