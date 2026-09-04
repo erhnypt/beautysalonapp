@@ -223,6 +223,27 @@ public class FinanceService implements FinancePort {
         return txns.ledger(accountId, from, to);
     }
 
+    // --- FinancePort: banka mutabakatı (Faz 8) ---------------------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BankAccountView> bankAccounts() {
+        return accounts.findAllByDeletedFalseOrderByKindAscCodeAsc().stream()
+                .filter(a -> a.getKind() == FinAccountKind.BANKA && a.isActive())
+                .map(a -> new BankAccountView(a.getId(), a.getCode(), a.getName(), a.getCurrency()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BankTxnView> bankLedger(long accountId, LocalDate from, LocalDate to) {
+        return txns.ledger(accountId, from, to).stream()
+                .filter(t -> !t.isVoided())
+                .map(t -> new BankTxnView(t.getId(), t.getDate(), t.signedEffectOnAccount(accountId),
+                        t.getDescription(), t.getDocNo()))
+                .toList();
+    }
+
     /** Gelir-gider tablosu: kart bazlı toplamlar. */
     @Transactional(readOnly = true)
     public List<IncomeExpenseRow> incomeExpenseReport(LocalDate from, LocalDate to) {

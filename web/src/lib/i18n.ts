@@ -11,6 +11,7 @@ export const t = {
     parties: "Cari Hesaplar",
     stock: "Stok",
     finance: "Kasa & Finans",
+    bankReconciliation: "Banka Mutabakatı",
     invoices: "Faturalar",
     contracts: "Sözleşmeler",
     staff: "Personel",

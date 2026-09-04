@@ -19,6 +19,7 @@ import { StaffPage } from "./pages/StaffPage";
 import { BackupPage } from "./pages/BackupPage";
 import { LoyaltyPage } from "./pages/LoyaltyPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
+import { BankReconciliationPage } from "./pages/BankReconciliationPage";
 import { t } from "./lib/i18n";
 
 export default function App() {
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="cari" element={<PartiesPage />} />
         <Route path="stok" element={<StockPage />} />
         <Route path="finans" element={<FinancePage />} />
+        <Route path="banka-mutabakat" element={<BankReconciliationPage />} />
         <Route path="faturalar" element={<InvoicesPage />} />
         <Route path="sozlesmeler" element={<ContractsPage />} />
         <Route path="personel" element={<StaffPage />} />

@@ -17,6 +17,7 @@ import {
   DatabaseBackup,
   LogOut,
   LayoutDashboard,
+  Landmark,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { t } from "../lib/i18n";
@@ -36,6 +37,7 @@ const items: NavItem[] = [
   { to: "/cari", label: t.nav.parties, icon: <Users2 size={18} />, perm: "PARTY_VIEW" },
   { to: "/stok", label: t.nav.stock, icon: <Boxes size={18} />, perm: "STOCK_VIEW" },
   { to: "/finans", label: t.nav.finance, icon: <Wallet size={18} />, perm: "FINANCE_VIEW" },
+  { to: "/banka-mutabakat", label: t.nav.bankReconciliation, icon: <Landmark size={18} />, perm: "FINANCE_VIEW" },
   { to: "/faturalar", label: t.nav.invoices, icon: <FileText size={18} />, perm: "INVOICE_VIEW" },
   { to: "/sozlesmeler", label: t.nav.contracts, icon: <FileSignature size={18} />, perm: "CONTRACT_VIEW" },
   { to: "/personel", label: t.nav.staff, icon: <UserCog size={18} />, perm: "STAFF_VIEW" },

@@ -4,7 +4,9 @@
 
 Bu faz kapsamı: **hesap planı (KASA/BANKA/POS/CEK)**, **gelir-gider kart ağacı**,
 **kasa hareketleri** (tahsilat, tediye, virman, döviz al-sat) ve cari defterle entegrasyon.
-Banka ekstresi içe aktarma, POS mahsuplaşma, çek portföyü → Faz 4.
+POS mahsuplaşma, çek portföyü → Faz 4. Banka ekstresi içe aktarma & mutabakat → Faz 8,
+bkz. [`banka-mutabakat.md`](banka-mutabakat.md) (`FinancePort.bankAccounts/bankLedger`
+bu modülden sağlanır).
 
 ## Veri modeli (bu faz)
 ```
