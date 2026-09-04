@@ -67,10 +67,12 @@ hard-delete yasağı + audit, `LOCKED`'te bile dışa aktarma, İYS izin kontrol
       PG 16'ya uygulanır, açılış tohumlayıcıları koşar, `NUMERIC(19,4)` ölçeği korunur — CI'da `-Ppg` job
 - [ ] `./mvnw -Pperf test` — performans bütçesi loglandı, aşım yok (CI'da `perf-budget` job)
 - [ ] license-server `./mvnw test` — yeşil (6 test)
-- [x] E2E (Playwright/Chromium): giriş → zorunlu parola değişimi → Günlük Analiz →
-      6 ana modül ekranı hatasız yüklenir → **cari (müşteri) oluşturma (form → POST → liste)** → çıkış.
-      İstemci konsol/pageerror hataları boş olmalı. `web/e2e/critical-path.spec.ts`, CI'da `e2e` job.
-      Derin akış (randevu→GELDI→stok/prim→tahsilat→rapor) sonraki adım — pilotla genişletilecek.
+- [x] E2E (Playwright/Chromium) — `web/e2e/critical-path.spec.ts`, CI'da `e2e` job, `test.describe.serial`:
+  - **Test 1:** giriş → zorunlu parola değişimi → 6 ana modül ekranı → cari (müşteri) oluşturma (form → POST → liste)
+  - **Test 2 (derin akış):** hizmet + personel + müşteri (kimlikli API) → randevu (UI form, 3 select) →
+    "Geldi + Tahsil" (UI) → `GET /api/v1/dashboard/today` doğrular: `GELDI ≥ 1`, `appointmentRevenue ≥ hizmet fiyatı`,
+    `collections ≥ 1` → Günlük Analiz UI'da "geldi" görünür → çıkış. İstemci konsol/pageerror hatası boş olmalı.
+    (Prim tahakkuku personel %10 oranıyla dolaylı tetiklenir; reçeteli stok sarfı `AppointmentServiceTest` kapsamında.)
 - [ ] Gerçek 500k tohumlamayla liste ekranları elle ölçüldü (p95 < 300 ms)
 - [ ] Temiz Windows VM + temiz macOS'ta kurulum + ilk giriş + yedek/geri-yükle çalıştı
 
@@ -106,6 +108,6 @@ hard-delete yasağı + audit, `LOCKED`'te bile dışa aktarma, İYS izin kontrol
 - Gerçek imzalı installer (Apple Developer $99/yıl, Windows EV ~$300/yıl — plan Risk #2)
 - Eğitim videoları
 - Canlı pilot ve muhasebe mutabakatı (süreç `docs/pilot/` altında kurgulandı)
-- E2E'nin **derin akışı** (randevu oluştur → GELDI → stok sarfı + prim + tahsilat → rapor) —
-  ilk smoke E2E kuruldu; veri-giriş adımları pilot geri bildirimiyle genişletilecek
+- E2E'nin daha derin varyasyonları (reçeteli hizmet → stok sarfı doğrulaması, fatura + çek/POS
+  ödeme yolları, iade/void) — çekirdek zincir kuruldu; genişletme pilot geri bildirimiyle
 - `release.yml` çalıştırması için sertifika secret'ları (aksi halde imzasız artefakt)
