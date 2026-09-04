@@ -59,9 +59,12 @@ hard-delete yasağı + audit, `LOCKED`'te bile dışa aktarma, İYS izin kontrol
 - [ ] `checksums.txt` üretildi ve yayın notuna eklendi
 
 ### Test
-- [ ] `./mvnw verify` — tüm testler yeşil (server)
+- [x] `./mvnw test` — 171 test yeşil (server); `-Pperf` ile 172
+- [x] Migration testi (`MigrationTest`): tüm Flyway betikleri boş DB'ye temiz, sürüm boşluğu yok, idempotent
+- [x] Lisans testi (`LicenseLifecycleTest`): sahte saat + tüm durum geçişleri
+      (ACTIVE/EXPIRING/GRACE/READ_ONLY/LOCKED/TAMPERED/REVOKED/SUSPENDED, çevrimdışı grace)
 - [ ] `./mvnw -Pperf test` — performans bütçesi loglandı, aşım yok
-- [ ] license-server `./mvnw test` — yeşil
+- [ ] license-server `./mvnw test` — yeşil (6 test)
 - [ ] Gerçek 500k tohumlamayla liste ekranları elle ölçüldü (p95 < 300 ms)
 - [ ] Temiz Windows VM + temiz macOS'ta kurulum + ilk giriş + yedek/geri-yükle çalıştı
 

@@ -88,9 +88,9 @@
 
 | # | Kontrol | Durum | Not |
 |---|---|---|---|
-| G1 | İmza doğrulama (Ed25519) | ✅ | `LicenseVerifier` — gömülü public key; bozuk imza → `TAMPERED` |
-| G2 | Monotonik saat (geri alma tespiti) | ✅ | `license_state` şifreli cache + monotonic clock |
-| G3 | Kademeli kısıtlama | ✅ | `ACTIVE→EXPIRING→GRACE→READ_ONLY→LOCKED→TAMPERED` |
+| G1 | İmza doğrulama (Ed25519) | ✅ | `LicenseVerifier` — gömülü public key; bozuk imza → `TAMPERED` (`LicenseVerifierTest` 4 + `LicenseLifecycleTest`) |
+| G2 | Monotonik saat (geri alma tespiti) | ✅ | `license_state` şifreli cache + `MonotonicClock` (AES-256-GCM), 6 saat tolerans |
+| G3 | Kademeli kısıtlama | ✅ | `ACTIVE→EXPIRING→GRACE→READ_ONLY→LOCKED→TAMPERED` — tüm geçişler `LicenseLifecycleTest` (11) ile sahte saatle test edildi |
 | G4 | Bypass edilebilirlik | ⚠️ (kabul) | Plan Risk #3: lisans kırılabilir, aşırı mühendislik yapılmadı; destek ilişkisiyle telafi |
 | G5 | Geliştirme modu üretime sızması | ⚠️ | Public key boşsa "tüm modüller açık". Paketleme adımı `@LICENSE_PUBLIC_KEY@` token'ını gömer; **release checklist'te doğrulama maddesi var** (`docs/17-faz7-sertlestirme.md`). |
 
