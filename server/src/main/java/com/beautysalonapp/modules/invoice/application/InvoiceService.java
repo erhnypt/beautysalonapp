@@ -19,6 +19,7 @@ import com.beautysalonapp.modules.invoice.domain.PaymentMethod;
 import com.beautysalonapp.modules.invoice.infrastructure.InvoiceLineRepository;
 import com.beautysalonapp.modules.invoice.infrastructure.InvoicePaymentRepository;
 import com.beautysalonapp.modules.invoice.infrastructure.InvoiceRepository;
+import com.beautysalonapp.modules.loyalty.application.LoyaltyPort;
 import com.beautysalonapp.modules.party.application.PartyDirectory;
 import com.beautysalonapp.modules.party.application.PartyLedger;
 import com.beautysalonapp.modules.party.domain.AccountKind;
@@ -48,6 +49,7 @@ public class InvoiceService {
     private final FinancePort finance;
     private final ChequePort cheques;
     private final PosSlipService posSlips;
+    private final LoyaltyPort loyalty;
     private final SequenceService sequences;
     private final SettingService settings;
     private final AuditService audit;
@@ -55,8 +57,8 @@ public class InvoiceService {
     public InvoiceService(InvoiceRepository invoices, InvoiceLineRepository lineRepo,
                           InvoicePaymentRepository paymentRepo, PartyDirectory partyDirectory,
                           PartyLedger partyLedger, StockPort stock, FinancePort finance,
-                          ChequePort cheques, PosSlipService posSlips, SequenceService sequences,
-                          SettingService settings, AuditService audit) {
+                          ChequePort cheques, PosSlipService posSlips, LoyaltyPort loyalty,
+                          SequenceService sequences, SettingService settings, AuditService audit) {
         this.invoices = invoices;
         this.lineRepo = lineRepo;
         this.paymentRepo = paymentRepo;
@@ -66,6 +68,7 @@ public class InvoiceService {
         this.finance = finance;
         this.cheques = cheques;
         this.posSlips = posSlips;
+        this.loyalty = loyalty;
         this.sequences = sequences;
         this.settings = settings;
         this.audit = audit;
@@ -157,6 +160,14 @@ public class InvoiceService {
 
         // Ödeme dağılımı
         applyPayments(inv, cmd.payments(), partyAccountId, date, docNo);
+
+        // Sadakat puan kazanımı (satış tarafı, kart varsa; yoksa no-op)
+        if (cmd.type() == InvoiceType.SATIS || cmd.type() == InvoiceType.PERAKENDE) {
+            int earned = loyalty.accrueFromSale(cmd.partyId(), totals.grandTotal(), docNo);
+            if (earned > 0) {
+                audit.record("LOYALTY_EARN", "Invoice", docNo, earned + " sadakat puanı kazandırıldı");
+            }
+        }
 
         audit.record("INVOICE_CREATE", "Invoice", docNo,
                 cmd.type() + " " + docNo + " toplam " + totals.grandTotal());

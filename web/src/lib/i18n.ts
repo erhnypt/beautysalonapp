@@ -16,6 +16,7 @@ export const t = {
     staff: "Personel",
     loyalty: "Sadakat",
     reports: "Raporlar",
+    notifications: "Bildirimler",
     settings: "Ayarlar",
     users: "Kullanıcılar",
     audit: "İşlem Kayıtları",

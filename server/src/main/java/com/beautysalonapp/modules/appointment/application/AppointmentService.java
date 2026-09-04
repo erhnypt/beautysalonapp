@@ -21,6 +21,7 @@ import com.beautysalonapp.modules.party.application.PartyDirectory;
 import com.beautysalonapp.modules.party.application.PartyLedger;
 import com.beautysalonapp.modules.party.domain.AccountKind;
 import com.beautysalonapp.modules.party.domain.PartyType;
+import com.beautysalonapp.modules.loyalty.application.LoyaltyPort;
 import com.beautysalonapp.modules.staff.application.CommissionPort;
 import com.beautysalonapp.modules.staff.domain.CommissionScope;
 import com.beautysalonapp.modules.stock.application.StockPort;
@@ -54,6 +55,7 @@ public class AppointmentService {
     private final FinancePort finance;
     private final SessionConsumptionPort sessions;
     private final CommissionPort commissions;
+    private final LoyaltyPort loyalty;
     private final SettingService settings;
     private final AuditService audit;
 
@@ -62,7 +64,7 @@ public class AppointmentService {
                               AppointmentRepository appointments, PartyDirectory partyDirectory,
                               PartyLedger partyLedger, StockPort stock, FinancePort finance,
                               SessionConsumptionPort sessions, CommissionPort commissions,
-                              SettingService settings, AuditService audit) {
+                              LoyaltyPort loyalty, SettingService settings, AuditService audit) {
         this.services = services;
         this.recipes = recipes;
         this.resources = resources;
@@ -74,6 +76,7 @@ public class AppointmentService {
         this.finance = finance;
         this.sessions = sessions;
         this.commissions = commissions;
+        this.loyalty = loyalty;
         this.settings = settings;
         this.audit = audit;
     }
@@ -253,6 +256,11 @@ public class AppointmentService {
         commissions.accrue(new CommissionPort.AccrueCommand(appt.getStaffPartyId(),
                 CommissionScope.SERVICE, commissionBase, "APPOINTMENT", "APPT-" + appt.getId(),
                 LocalDate.now()));
+
+        // Sadakat puanı — hizmet bedeli üzerinden (kart yoksa no-op)
+        if (appt.getContractLineId() == null && commissionBase != null && commissionBase.signum() > 0) {
+            loyalty.accrueFromSale(appt.getPartyId(), commissionBase, "APPT-" + appt.getId());
+        }
 
         appt.setArrivedAt(Instant.now());
         appt.setChainDone(true);

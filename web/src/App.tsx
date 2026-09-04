@@ -17,6 +17,8 @@ import { AppointmentsPage } from "./pages/AppointmentsPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { StaffPage } from "./pages/StaffPage";
 import { BackupPage } from "./pages/BackupPage";
+import { LoyaltyPage } from "./pages/LoyaltyPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { t } from "./lib/i18n";
 
 export default function App() {
@@ -64,7 +66,8 @@ export default function App() {
         <Route path="faturalar" element={<InvoicesPage />} />
         <Route path="sozlesmeler" element={<ContractsPage />} />
         <Route path="personel" element={<StaffPage />} />
-        <Route path="sadakat" element={<PlaceholderPage titleKey="loyalty" />} />
+        <Route path="sadakat" element={<LoyaltyPage />} />
+        <Route path="bildirimler" element={<NotificationsPage />} />
         <Route path="raporlar" element={<PlaceholderPage titleKey="reports" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
