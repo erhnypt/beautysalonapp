@@ -14,6 +14,7 @@ import org.bouncycastle.crypto.params.Ed25519KeyGenerationParameters;
 import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters;
 import org.bouncycastle.crypto.signers.Ed25519Signer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,6 +79,21 @@ class LicenseLifecycleTest {
     @Transactional
     void reset() {
         now = Instant.now();
+        pristineLicenseState();
+    }
+
+    /**
+     * {@code license_state} paylaşılan tekil satırdır; buradaki lisans gövdesi sızarsa
+     * sonraki testler (ör. {@code AuthFlowTest.devMode=true}) bozulur. Bu yüzden her testten
+     * SONRA da temizlenir.
+     */
+    @AfterEach
+    @Transactional
+    void cleanup() {
+        pristineLicenseState();
+    }
+
+    private void pristineLicenseState() {
         LicenseState st = stateRepo.singleton();
         st.setLicenseBlob(null);
         st.setServerStatus("ACTIVE");
