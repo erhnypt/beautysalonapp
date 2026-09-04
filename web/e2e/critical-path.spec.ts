@@ -58,6 +58,16 @@ test("giriş → zorunlu parola değişimi → panel → ana modüller yüklenir
     await expect(page.getByRole("heading", { name: m.heading }).first()).toBeVisible();
   }
 
+  // --- cari (müşteri) oluşturma: form → POST /api/v1/parties → liste yenilenir ---
+  await page.getByRole("link", { name: "Cari Hesaplar", exact: true }).click();
+  const musteriAdi = `E2E Müşteri ${Date.now()}`;
+  await page.getByRole("button", { name: "Ekle" }).click();
+  const form = page.locator('form:has-text("Ünvan / Ad Soyad")');
+  await form.locator("input.input").nth(0).fill(musteriAdi);
+  await form.locator("input.input").nth(1).fill("5551234567");
+  await form.getByRole("button", { name: "Kaydet" }).click();
+  await expect(page.getByRole("cell", { name: musteriAdi })).toBeVisible();
+
   // --- çıkış ---
   await page.getByRole("button", { name: "Çıkış" }).click();
   await expect(page).toHaveURL(/\/login$/);

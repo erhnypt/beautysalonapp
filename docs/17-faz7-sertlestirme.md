@@ -68,9 +68,9 @@ hard-delete yasağı + audit, `LOCKED`'te bile dışa aktarma, İYS izin kontrol
 - [ ] `./mvnw -Pperf test` — performans bütçesi loglandı, aşım yok (CI'da `perf-budget` job)
 - [ ] license-server `./mvnw test` — yeşil (6 test)
 - [x] E2E (Playwright/Chromium): giriş → zorunlu parola değişimi → Günlük Analiz →
-      6 ana modül ekranı hatasız yüklenir → çıkış. `web/e2e/critical-path.spec.ts`,
-      CI'da `e2e` job (backend'i `mvn spring-boot:run` ile izole veri diziniyle ayağa kaldırır).
-      Derin veri-giriş akışı (randevu→GELDI→tahsilat) sonraki adım.
+      6 ana modül ekranı hatasız yüklenir → **cari (müşteri) oluşturma (form → POST → liste)** → çıkış.
+      İstemci konsol/pageerror hataları boş olmalı. `web/e2e/critical-path.spec.ts`, CI'da `e2e` job.
+      Derin akış (randevu→GELDI→stok/prim→tahsilat→rapor) sonraki adım — pilotla genişletilecek.
 - [ ] Gerçek 500k tohumlamayla liste ekranları elle ölçüldü (p95 < 300 ms)
 - [ ] Temiz Windows VM + temiz macOS'ta kurulum + ilk giriş + yedek/geri-yükle çalıştı
 
