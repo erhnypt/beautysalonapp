@@ -53,8 +53,10 @@ class BranchIsolationTest {
         Branch b = branches.create(code(), "İzolasyon Şubesi", null, null, null);
 
         List<Warehouse> branchWarehouses = warehouses.findAllByBranchIdAndDeletedFalseOrderByCode(b.getId());
-        assertThat(branchWarehouses).hasSize(1);
-        assertThat(branchWarehouses.get(0).getBranchId()).isEqualTo(b.getId());
+        assertThat(branchWarehouses).hasSize(2);
+        assertThat(branchWarehouses).allMatch(w -> w.getBranchId().equals(b.getId()));
+        assertThat(branchWarehouses).anyMatch(w -> w.getType() == com.beautysalonapp.modules.stock.domain.WarehouseType.WAREHOUSE);
+        assertThat(branchWarehouses).anyMatch(w -> w.getType() == com.beautysalonapp.modules.stock.domain.WarehouseType.CONSUMPTION);
 
         var acc = accounts.findFirstByBranchIdAndKindAndActiveTrueOrderByIdAsc(
                 b.getId(), com.beautysalonapp.modules.finance.domain.FinAccountKind.KASA);

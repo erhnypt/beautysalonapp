@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Set;
 
 /**
  * Faz 8 tam şube izolasyonu (ADR 0006): isteğin {@code X-Branch-Id} başlığını okuyup
@@ -33,6 +34,13 @@ public class BranchContextFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-Branch-Id";
 
+    /** CLAUDE.md #9: LOCKED durumda bile dışa aktarma/yedekleme çalışmalı — geçersiz/eski bir
+     * X-Branch-Id başlığı bu yolları engellememeli (bkz. LicenseEnforcementFilter). */
+    private static final Set<String> EXEMPT_PREFIXES = Set.of(
+            "/api/v1/backup/",
+            "/api/v1/export/"
+    );
+
     private final BranchRepository branches;
     private final ObjectMapper objectMapper;
 
@@ -46,7 +54,9 @@ public class BranchContextFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String header = request.getHeader(HEADER);
-        if (header == null || header.isBlank() || !request.getRequestURI().startsWith("/api/")) {
+        String path = request.getRequestURI();
+        if (header == null || header.isBlank() || !path.startsWith("/api/")
+                || EXEMPT_PREFIXES.stream().anyMatch(path::startsWith)) {
             chain.doFilter(request, response);
             return;
         }

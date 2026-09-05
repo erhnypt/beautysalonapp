@@ -21,6 +21,9 @@ server/src/main/resources/static/*
 .classpath
 .project
 
+# Claude Code
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -107,6 +107,62 @@ class InvoiceServiceTest {
         assertThat(partyLedger.balance(acc).getAmount()).isEqualByComparingTo("-960.0000"); // 10*80*1.2 alacak
     }
 
+    private Invoice sale(long partyId) {
+        return invoices.create(new CreateInvoiceCommand(InvoiceType.SATIS, LocalDate.now(), partyId, null,
+                null, null,
+                List.of(new NewLine(null, true, "Hizmet", BigDecimal.ONE, null,
+                        new BigDecimal("500"), BigDecimal.ZERO, BigDecimal.ZERO)),
+                List.of()));
+    }
+
+    @Test
+    void risk_limiti_WARN_modunda_satisi_engellemez() {
+        long cust = customer();
+        partyService.update(cust, null, null, null, null, null, null, null, null, null, null,
+                new BigDecimal("100"));
+        Invoice inv = sale(cust); // 500 > 100 limit, ama varsayılan mod WARN
+        assertThat(inv.getGrandTotal()).isEqualByComparingTo("500.00");
+    }
+
+    @Test
+    void risk_limiti_BLOCK_modunda_satisi_reddeder() {
+        settings.put("party.riskLimit.mode", "BLOCK");
+        try {
+            long cust = customer();
+            partyService.update(cust, null, null, null, null, null, null, null, null, null, null,
+                    new BigDecimal("100"));
+            assertThatThrownBy(() -> sale(cust)).isInstanceOf(BusinessRuleException.class);
+        } finally {
+            settings.put("party.riskLimit.mode", "WARN");
+        }
+    }
+
+    @Test
+    void risk_limiti_asilmayan_satis_BLOCK_modunda_da_gecer() {
+        settings.put("party.riskLimit.mode", "BLOCK");
+        try {
+            long cust = customer();
+            partyService.update(cust, null, null, null, null, null, null, null, null, null, null,
+                    new BigDecimal("1000"));
+            Invoice inv = sale(cust); // 500 <= 1000 limit
+            assertThat(inv.getGrandTotal()).isEqualByComparingTo("500.00");
+        } finally {
+            settings.put("party.riskLimit.mode", "WARN");
+        }
+    }
+
+    @Test
+    void risk_limiti_tanimsizsa_kontrol_uygulanmaz() {
+        settings.put("party.riskLimit.mode", "BLOCK");
+        try {
+            long cust = customer(); // riskLimit set edilmedi
+            Invoice inv = sale(cust);
+            assertThat(inv.getGrandTotal()).isEqualByComparingTo("500.00");
+        } finally {
+            settings.put("party.riskLimit.mode", "WARN");
+        }
+    }
+
     @Test
     void perakende_fis_no_zorunlulugu_ayarla() {
         settings.put("invoice.retail.requireReceiptNo", "true");

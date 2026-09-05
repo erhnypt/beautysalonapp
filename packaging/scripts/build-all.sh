@@ -47,6 +47,10 @@ cd "$ROOT/server"
 JAR="$ROOT/server/target/beautysalonapp.jar"
 [ -f "$JAR" ] || { echo "HATA: $JAR üretilmedi"; exit 1; }
 
+# Plan §7.3: yasaklı lisans (AGPL/GPL) taraması + THIRD-PARTY.txt dağıtım paketine kopyalanır.
+THIRD_PARTY="$ROOT/server/target/generated-sources/license/THIRD-PARTY.txt"
+"$ROOT/packaging/scripts/check-licenses.sh" "$THIRD_PARTY"
+
 # --- 3. Public key gömme -----------------------------------------------------
 if [ -n "${LICENSE_PUBLIC_KEY:-}" ]; then
   echo "==> [3/5] Lisans public key gömülüyor"
@@ -122,6 +126,11 @@ if [ "${NOTARIZE:-0}" = "1" ] && [ "$OS" = "Darwin" ]; then
   bash "$ROOT/packaging/scripts/notarize.sh" "$DIST/out"
 fi
 
+# --- LICENSES (plan §7.3: LGPL/Apache-2.0 bağımlılıkların dağıtımla birlikte gitmesi gerekir) ---
+mkdir -p "$DIST/out/LICENSES"
+cp "$THIRD_PARTY" "$DIST/out/LICENSES/THIRD-PARTY.txt"
+echo "==> LICENSES/THIRD-PARTY.txt kopyalandı"
+
 # --- checksums ---
-( cd "$DIST/out" && for f in *; do [ -f "$f" ] && shasum -a 256 "$f"; done > checksums.txt )
+( cd "$DIST/out" && find . -type f ! -path "./checksums.txt" -exec shasum -a 256 {} \; > checksums.txt )
 echo "==> checksums.txt yazıldı"

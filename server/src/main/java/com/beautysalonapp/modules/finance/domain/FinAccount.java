@@ -40,6 +40,10 @@ public class FinAccount extends BaseEntity {
     @Column(name = "bank_info", length = 300)
     private String bankInfo;
 
+    /** Döviz hesapları için ağırlıklı ortalama kur (kur farkı hesaplama, plan §10.6). */
+    @Column(name = "avg_rate", precision = 19, scale = 6)
+    private BigDecimal avgRate;
+
     @Column(name = "is_default", nullable = false)
     private boolean isDefault = false;
 
@@ -72,6 +76,8 @@ public class FinAccount extends BaseEntity {
     public void setCommissionRate(BigDecimal commissionRate) { this.commissionRate = commissionRate; }
     public String getBankInfo() { return bankInfo; }
     public void setBankInfo(String bankInfo) { this.bankInfo = bankInfo; }
+    public BigDecimal getAvgRate() { return avgRate; }
+    public void setAvgRate(BigDecimal avgRate) { this.avgRate = avgRate; }
     public boolean isDefault() { return isDefault; }
     public void setDefault(boolean aDefault) { isDefault = aDefault; }
     public boolean isActive() { return active; }

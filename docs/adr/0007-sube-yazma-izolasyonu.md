@@ -4,6 +4,8 @@
 - **Tarih:** 2026-09-05
 - **Önceki karar:** [[0006-merkezi-sube]] — bu ADR'nin "sonraki adım" olarak bilinçli
   şekilde kapsam dışı bıraktığı işi tamamlar.
+- **Sonraki not:** [[0008-sube-mimarisi-plan-sapmasi]] — burada seçilen tek-DB modelinin
+  plan §12'nin önerdiği tasarımdan nasıl ve neden saptığını kayıt altına alır.
 
 ## Bağlam
 

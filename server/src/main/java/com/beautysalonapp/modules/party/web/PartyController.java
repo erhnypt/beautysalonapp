@@ -69,7 +69,7 @@ public class PartyController {
     public PartyDetail update(@PathVariable long id, @Valid @RequestBody UpdatePartyRequest r) {
         return PartyDetail.of(partyService.update(id, r.title(), r.firstName(), r.lastName(),
                 r.phone(), r.email(), r.taxId(), r.tcNo(),
-                r.smsConsent(), r.emailConsent(), r.iysStatus()));
+                r.smsConsent(), r.emailConsent(), r.iysStatus(), r.riskLimit()));
     }
 
     @PostMapping("/{id}/anonymize")

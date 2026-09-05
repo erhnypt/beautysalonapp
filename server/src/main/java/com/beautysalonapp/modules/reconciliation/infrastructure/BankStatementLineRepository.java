@@ -19,4 +19,7 @@ public interface BankStatementLineRepository extends JpaRepository<BankStatement
      * (aynı kasa hareketinin iki kez mutabık gösterilmesini önlemek için). */
     @Query("select l.matchedTxnId from BankStatementLine l where l.matchedTxnId is not null")
     List<Long> findAllMatchedTxnIds();
+
+    /** txnId'nin, verilen satır dışında başka bir satırca zaten eşleştirilip eşleştirilmediği. */
+    boolean existsByMatchedTxnIdAndIdNot(Long matchedTxnId, Long id);
 }

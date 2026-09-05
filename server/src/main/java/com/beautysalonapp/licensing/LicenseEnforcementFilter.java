@@ -36,6 +36,7 @@ public class LicenseEnforcementFilter extends OncePerRequestFilter {
             "/api/v1/license/",
             "/api/v1/backup/",
             "/api/v1/export/",
+            "/api/v1/support/",
             "/actuator/"
     );
 

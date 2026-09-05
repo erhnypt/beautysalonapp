@@ -22,6 +22,7 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <bouncycastle.version>1.85.2</bouncycastle.version>
+        <license-maven-plugin.version>2.5.0</license-maven-plugin.version>
     </properties>
 
     <dependencies>
@@ -109,6 +110,26 @@
                         </exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+            <!-- Plan §7.3: her build'de SBOM/THIRD-PARTY üretimi + CI'da AGPL/GPL taraması. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license-maven-plugin.version}</version>
+                <configuration>
+                    <excludedScopes>test</excludedScopes>
+                    <failOnMissing>false</failOnMissing>
+                    <failOnBlacklist>false</failOnBlacklist>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>generate-third-party</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>add-third-party</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

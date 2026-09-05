@@ -89,6 +89,14 @@ public class BackupService {
     public record BackupStatus(Instant lastSuccessfulAt, String lastError, int totalBackups,
                                long totalBytes, boolean scheduledEnabled, String dir) {}
 
+    public record SystemInfo(String appVersion, String schemaVersion, String dbType) {}
+
+    /** Destek paketi / tanı ekranı için (plan §13.2) — iş verisi içermez. */
+    @Transactional(readOnly = true)
+    public SystemInfo systemInfo() {
+        return new SystemInfo(appVersion(), schemaVersion(), dbType());
+    }
+
     @Transactional(readOnly = true)
     public BackupStatus status() {
         Instant last = logs.findFirstByKindAndStatusOrderByStartedAtDesc("BACKUP", "OK")

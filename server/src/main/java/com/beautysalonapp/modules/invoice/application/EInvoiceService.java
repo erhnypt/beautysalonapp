@@ -101,7 +101,7 @@ public class EInvoiceService {
                 new UblTrInvoiceData.Party(buyer.taxId(), buyer.tcNo(), buyer.title(),
                         buyer.address(), buyer.city(), buyer.district(), buyer.postcode()),
                 lines.stream().map(this::toLine).toList(),
-                taxExclusive,
+                inv.getSubtotal(),
                 inv.getDiscountTotal(),
                 taxExclusive,
                 inv.getVatTotal(),

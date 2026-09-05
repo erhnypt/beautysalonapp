@@ -1,5 +1,6 @@
 package com.beautysalonapp.modules.staff;
 
+import com.beautysalonapp.core.error.BusinessRuleException;
 import com.beautysalonapp.modules.finance.application.FinanceService;
 import com.beautysalonapp.modules.party.application.PartyLedger;
 import com.beautysalonapp.modules.party.application.PartyService;
@@ -20,6 +21,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 class StaffServiceTest {
@@ -112,6 +114,50 @@ class StaffServiceTest {
         assertThat(finance.accountBalance(kasa).getAmount()).isEqualByComparingTo(kasaBefore.subtract(new BigDecimal("500")));
         assertThat(partyLedger.balance(acc).getAmount()).isEqualByComparingTo("500.0000"); // personel borçlu
         assertThat(staff.advances(s.getId())).hasSize(1);
+    }
+
+    @Test
+    void donem_kapatilinca_net_hesaplanir_ve_kilitlenir() {
+        Staff s = newStaff(new BigDecimal("10"));
+        var period = staff.closePeriod(s.getId(), YM, new BigDecimal("20000"), new BigDecimal("3000"));
+        assertThat(period.isLocked()).isTrue();
+        assertThat(period.getNet()).isEqualByComparingTo("17000");
+        assertThat(staff.salaryPeriods(s.getId())).hasSize(1);
+    }
+
+    @Test
+    void kapali_donem_ikinci_kez_kapatilamaz() {
+        Staff s = newStaff(new BigDecimal("10"));
+        staff.closePeriod(s.getId(), YM, new BigDecimal("1000"), BigDecimal.ZERO);
+        assertThatThrownBy(() -> staff.closePeriod(s.getId(), YM, new BigDecimal("1000"), BigDecimal.ZERO))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void kapali_donemde_avans_girilemez() {
+        Staff s = newStaff(null);
+        staff.closePeriod(s.getId(), YM, BigDecimal.ZERO, BigDecimal.ZERO);
+        assertThatThrownBy(() -> staff.giveAdvance(s.getId(), new BigDecimal("100"), null))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void kapali_donemde_prim_odemesi_yapilamaz() {
+        Staff s = newStaff(new BigDecimal("10"));
+        commissionPort.accrue(new CommissionPort.AccrueCommand(s.getPartyId(), CommissionScope.SERVICE,
+                new BigDecimal("400"), "APPOINTMENT", "APPT-LOCK-1", LocalDate.now()));
+        staff.closePeriod(s.getId(), YM, BigDecimal.ZERO, BigDecimal.ZERO);
+        assertThatThrownBy(() -> staff.payCommissions(s.getId(), YM, null))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void kapali_donemde_yeni_prim_tahakkuk_etmez() {
+        Staff s = newStaff(new BigDecimal("10"));
+        staff.closePeriod(s.getId(), YM, BigDecimal.ZERO, BigDecimal.ZERO);
+        commissionPort.accrue(new CommissionPort.AccrueCommand(s.getPartyId(), CommissionScope.SERVICE,
+                new BigDecimal("400"), "APPOINTMENT", "APPT-LOCK-2", LocalDate.now()));
+        assertThat(staff.commissions(s.getId(), YM)).isEmpty();
     }
 
     @Test

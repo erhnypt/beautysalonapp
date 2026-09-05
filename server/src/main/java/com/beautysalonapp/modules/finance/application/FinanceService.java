@@ -6,20 +6,24 @@ import com.beautysalonapp.core.domain.Money;
 import com.beautysalonapp.core.error.BusinessRuleException;
 import com.beautysalonapp.core.error.NotFoundException;
 import com.beautysalonapp.core.sequence.SequenceService;
+import com.beautysalonapp.modules.finance.domain.CashCount;
 import com.beautysalonapp.modules.finance.domain.CashTransaction;
 import com.beautysalonapp.modules.finance.domain.CashTxnType;
 import com.beautysalonapp.modules.finance.domain.FinAccount;
 import com.beautysalonapp.modules.finance.domain.FinAccountKind;
 import com.beautysalonapp.modules.finance.domain.IncomeExpenseCard;
+import com.beautysalonapp.modules.finance.infrastructure.CashCountRepository;
 import com.beautysalonapp.modules.finance.infrastructure.CashTransactionRepository;
 import com.beautysalonapp.modules.finance.infrastructure.FinAccountRepository;
 import com.beautysalonapp.modules.finance.infrastructure.IncomeExpenseCardRepository;
 import com.beautysalonapp.modules.party.application.PartyLedger;
+import com.beautysalonapp.settings.application.SettingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -32,18 +36,22 @@ public class FinanceService implements FinancePort {
     private final FinAccountRepository accounts;
     private final IncomeExpenseCardRepository cards;
     private final CashTransactionRepository txns;
+    private final CashCountRepository cashCounts;
     private final PartyLedger partyLedger;
     private final SequenceService sequences;
+    private final SettingService settings;
     private final AuditService audit;
 
     public FinanceService(FinAccountRepository accounts, IncomeExpenseCardRepository cards,
-                          CashTransactionRepository txns, PartyLedger partyLedger,
-                          SequenceService sequences, AuditService audit) {
+                          CashTransactionRepository txns, CashCountRepository cashCounts, PartyLedger partyLedger,
+                          SequenceService sequences, SettingService settings, AuditService audit) {
         this.accounts = accounts;
         this.cards = cards;
         this.txns = txns;
+        this.cashCounts = cashCounts;
         this.partyLedger = partyLedger;
         this.sequences = sequences;
+        this.settings = settings;
         this.audit = audit;
     }
 
@@ -159,6 +167,150 @@ public class FinanceService implements FinancePort {
             partyLedger.reverse("PAYMENT", ledgerRef, reason);
         }
         audit.record("CASH_TXN_VOID", "CashTransaction", t.getDocNo(), "Kasa hareketi iptal: " + nz(reason));
+    }
+
+    // --- döviz alım/satım (plan §10.6) -------------------------------
+
+    public record FxCommand(LocalDate date, long fxAccountId, long tryAccountId, boolean buy,
+                            BigDecimal fxAmount, BigDecimal rate, String description) {}
+
+    /**
+     * Döviz alım/satım. Alımda döviz hesabının ağırlıklı ortalama kuru güncellenir
+     * (bkz. {@code WeightedAverageCost}, aynı yaklaşım). Satımda gerçekleşen kur farkı
+     * (satış kuru − ortalama maliyet kuru) ayrı bir kayıtla ilgili gelir/gider kartına
+     * yazılır ({@code finance.fxGainCardId} / {@code finance.fxLossCardId} ayarı) —
+     * kart tanımlı değilse fark yine de kasaya işlenir, sadece raporda kartsız görünür.
+     */
+    public CashTransaction fxExchange(FxCommand c) {
+        if (c.fxAmount() == null || c.fxAmount().signum() <= 0) {
+            throw new BusinessRuleException("bad_amount", "Döviz miktarı pozitif olmalı");
+        }
+        if (c.rate() == null || c.rate().signum() <= 0) {
+            throw new BusinessRuleException("bad_rate", "Kur pozitif olmalı");
+        }
+        FinAccount fxAccount = getAccount(c.fxAccountId());
+        FinAccount tryAccount = getAccount(c.tryAccountId());
+        if (fxAccount.getCurrency().equals(tryAccount.getCurrency())) {
+            throw new BusinessRuleException("same_currency",
+                    "Döviz ve karşı hesap aynı para biriminde olamaz");
+        }
+        LocalDate date = c.date() == null ? LocalDate.now() : c.date();
+        BigDecimal tryAmount = c.fxAmount().multiply(c.rate()).setScale(4, RoundingMode.HALF_UP);
+        String docNo = sequences.next(BRANCH, "FX", "DV");
+
+        CashTransaction fxLeg = new CashTransaction(c.buy() ? CashTxnType.FX_BUY : CashTxnType.FX_SELL,
+                date, c.fxAccountId(), c.fxAmount(), fxAccount.getCurrency());
+        fxLeg.setFxRate(c.rate());
+        fxLeg.setDescription(nz(c.description()));
+        fxLeg.setDocNo(docNo);
+        fxLeg.setDocType("FX");
+        fxLeg.setLineKey("fx");
+        txns.save(fxLeg);
+
+        if (c.buy()) {
+            CashTransaction tryLeg = new CashTransaction(CashTxnType.PAYMENT, date, c.tryAccountId(),
+                    tryAmount, tryAccount.getCurrency());
+            tryLeg.setDescription("Döviz alımı " + docNo + ": " + qty(c.fxAmount()) + " " + fxAccount.getCurrency());
+            tryLeg.setDocNo(docNo);
+            tryLeg.setDocType("FX");
+            tryLeg.setLineKey("try");
+            txns.save(tryLeg);
+
+            BigDecimal newQty = accountBalance(c.fxAccountId()).getAmount(); // fxLeg zaten dahil
+            BigDecimal priorQty = newQty.subtract(c.fxAmount());
+            BigDecimal priorAvg = fxAccount.getAvgRate() == null ? c.rate() : fxAccount.getAvgRate();
+            BigDecimal newAvg = newQty.signum() <= 0 ? c.rate()
+                    : priorQty.multiply(priorAvg).add(c.fxAmount().multiply(c.rate()))
+                            .divide(newQty, 6, RoundingMode.HALF_UP);
+            fxAccount.setAvgRate(newAvg);
+            accounts.save(fxAccount);
+            audit.record("FX_BUY", "CashTransaction", docNo,
+                    "Döviz alımı: " + qty(c.fxAmount()) + " " + fxAccount.getCurrency() + " @ " + c.rate());
+            return fxLeg;
+        }
+
+        BigDecimal avgRate = fxAccount.getAvgRate() == null ? c.rate() : fxAccount.getAvgRate();
+        BigDecimal costBasis = c.fxAmount().multiply(avgRate).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal gainLoss = tryAmount.subtract(costBasis);
+
+        CashTransaction costLeg = new CashTransaction(CashTxnType.COLLECTION, date, c.tryAccountId(),
+                costBasis, tryAccount.getCurrency());
+        costLeg.setDescription("Döviz satımı " + docNo + ": " + qty(c.fxAmount()) + " " + fxAccount.getCurrency());
+        costLeg.setDocNo(docNo);
+        costLeg.setDocType("FX");
+        costLeg.setLineKey("try");
+        txns.save(costLeg);
+
+        if (gainLoss.signum() != 0) {
+            String settingKey = gainLoss.signum() > 0 ? "finance.fxGainCardId" : "finance.fxLossCardId";
+            Long cardId = settings.get(settingKey).map(Long::valueOf).orElse(null);
+            CashTransaction adjLeg = new CashTransaction(
+                    gainLoss.signum() > 0 ? CashTxnType.COLLECTION : CashTxnType.PAYMENT,
+                    date, c.tryAccountId(), gainLoss.abs(), tryAccount.getCurrency());
+            adjLeg.setIncomeExpenseCardId(validateCard(cardId));
+            adjLeg.setDescription((gainLoss.signum() > 0 ? "Kur karı" : "Kur zararı") + ": " + docNo);
+            adjLeg.setDocNo(docNo);
+            adjLeg.setDocType("FX");
+            adjLeg.setLineKey("gainloss");
+            txns.save(adjLeg);
+        }
+        audit.record("FX_SELL", "CashTransaction", docNo,
+                "Döviz satımı: " + qty(c.fxAmount()) + " " + fxAccount.getCurrency() + " @ " + c.rate()
+                        + " (kur farkı " + gainLoss + ")");
+        return fxLeg;
+    }
+
+    // --- kasa sayımı / kasa farkı (plan §10.6, §11) ------------------
+
+    @Transactional(readOnly = true)
+    public List<CashCount> cashCounts(long accountId) {
+        return cashCounts.findAllByAccountIdOrderByDateDescIdDesc(accountId);
+    }
+
+    /**
+     * Gün başı/gün sonu kasa sayımı. Sayılan tutar sistemin hesapladığı bakiyeden
+     * farklıysa gerekçe zorunludur ve fark aynı hesaba "kasa farkı" gelir/gider kaydı
+     * olarak işlenir — hesabın bakiyesi fiziksel sayıma eşitlenir (plan §10.6).
+     */
+    public CashCount countCash(long accountId, LocalDate date, BigDecimal countedAmount, String reason) {
+        if (countedAmount == null) {
+            throw new BusinessRuleException("bad_amount", "Sayılan tutar boş olamaz");
+        }
+        FinAccount account = getAccount(accountId);
+        LocalDate countDate = date == null ? LocalDate.now() : date;
+        BigDecimal expected = accountBalance(accountId).getAmount();
+        BigDecimal difference = countedAmount.subtract(expected);
+
+        if (difference.signum() != 0 && (reason == null || reason.isBlank())) {
+            throw new BusinessRuleException("reason_required",
+                    "Kasa farkı var (" + difference.stripTrailingZeros().toPlainString()
+                            + "), gerekçe girilmeden sayım kaydedilemez");
+        }
+
+        CashCount count = new CashCount(accountId, countDate, expected, countedAmount);
+        count.setReason(reason);
+
+        if (difference.signum() != 0) {
+            String settingKey = difference.signum() > 0
+                    ? "finance.cashSurplusCardId" : "finance.cashShortageCardId";
+            Long cardId = settings.get(settingKey).map(Long::valueOf).orElse(null);
+            CashTransaction adj = new CashTransaction(
+                    difference.signum() > 0 ? CashTxnType.COLLECTION : CashTxnType.PAYMENT,
+                    countDate, accountId, difference.abs(), account.getCurrency());
+            adj.setIncomeExpenseCardId(validateCard(cardId));
+            adj.setDocNo(sequences.next(BRANCH, "CASH_COUNT", "SY"));
+            adj.setDocType("CASH_COUNT");
+            adj.setLineKey("adj");
+            adj.setDescription((difference.signum() > 0 ? "Kasa fazlası" : "Kasa açığı") + ": " + reason);
+            txns.save(adj);
+            count.setAdjustmentDocNo(adj.getDocNo());
+        }
+
+        cashCounts.save(count);
+        audit.record("CASH_COUNT", "FinAccount", account.getCode(),
+                countDate + " sayımı: beklenen " + expected + ", sayılan " + countedAmount
+                        + ", fark " + difference + (reason == null ? "" : " (" + reason + ")"));
+        return count;
     }
 
     // --- FinancePort ------------------------------------------------
@@ -331,5 +483,9 @@ public class FinanceService implements FinancePort {
 
     private static String nz(String s) {
         return s == null ? "" : s;
+    }
+
+    private static String qty(BigDecimal amount) {
+        return amount.stripTrailingZeros().toPlainString();
     }
 }

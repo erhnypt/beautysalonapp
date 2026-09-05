@@ -73,6 +73,7 @@ public class BranchService {
      * Kod çakışmasını önlemek için şube koduna göre türetilir (şube kodları benzersizdir).
      */
     private void provisionDefaults(Branch b) {
+        Long previous = BranchContextHolder.get();
         BranchContextHolder.set(b.getId());
         try {
             // warehouse.code / fin_account.code VARCHAR(20); "D-"/"K-" + şube kodu (max 20)
@@ -80,10 +81,12 @@ public class BranchService {
             String suffix = b.getCode().length() > 18 ? b.getCode().substring(0, 18) : b.getCode();
             stock.createWarehouse("D-" + suffix, "Depo (" + b.getTitle() + ")",
                     WarehouseType.WAREHOUSE, false);
+            stock.createWarehouse("S-" + suffix, "Sarf (" + b.getTitle() + ")",
+                    WarehouseType.CONSUMPTION, false);
             finance.createAccount("K-" + suffix, "Kasa (" + b.getTitle() + ")",
                     FinAccountKind.KASA, "TRY", null, false);
         } finally {
-            BranchContextHolder.clear();
+            BranchContextHolder.set(previous);
         }
     }
 

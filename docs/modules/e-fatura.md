@@ -59,7 +59,7 @@ Bu modül **yeni bir kalıcı depolama alanı eklemez** — `Party.taxId`/`tcNo`
 HTTP yanıtı olarak akışa yazılır ve tarayıcıda indirilir — sunucu tarafında saklanmaz.
 `invoice.einvoice_uuid/einvoice_status` kimlik bilgisi değildir (rastgele UUID + durum
 metni). `audit_log`'a yazılan özet yalnızca fatura no'sunu içerir, vergi no/ad geçmez.
-`docs/04-guvenlik-kvkk.md` bu depoda yok (önceden var olan boşluk, bkz. banka-mutabakat.md).
+Bkz. `docs/04-guvenlik-kvkk.md` §1 — bu modül yeni bir şifreleme tetikleyicisi eklemiyor.
 
 ## Test
 

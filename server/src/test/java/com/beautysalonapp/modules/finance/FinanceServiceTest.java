@@ -39,6 +39,119 @@ class FinanceServiceTest {
         assertThat(finance.listCards()).extracting("code").contains("600.01", "700.01");
     }
 
+    private long usdAccount() {
+        return finance.createAccount("USD-" + System.nanoTime(), "Döviz Kasası", FinAccountKind.KASA,
+                "USD", BigDecimal.ZERO, false).getId();
+    }
+
+    @Test
+    void doviz_alimi_ortalama_kuru_gunceller_ve_tl_hesabi_borclandirir() {
+        long usd = usdAccount();
+        long try_ = finance.defaultCashAccountId();
+        BigDecimal tryBefore = finance.accountBalance(try_).getAmount();
+
+        finance.fxExchange(new FinanceService.FxCommand(LocalDate.now(), usd, try_, true,
+                new BigDecimal("100"), new BigDecimal("30"), "İlk alım"));
+
+        assertThat(finance.accountBalance(usd).getAmount()).isEqualByComparingTo("100");
+        assertThat(finance.accountBalance(try_).getAmount()).isEqualByComparingTo(tryBefore.subtract(new BigDecimal("3000")));
+        assertThat(finance.getAccount(usd).getAvgRate()).isEqualByComparingTo("30");
+
+        // ikinci alım farklı kurdan -> ağırlıklı ortalama
+        finance.fxExchange(new FinanceService.FxCommand(LocalDate.now(), usd, try_, true,
+                new BigDecimal("100"), new BigDecimal("32"), "İkinci alım"));
+        assertThat(finance.accountBalance(usd).getAmount()).isEqualByComparingTo("200");
+        // (100*30 + 100*32) / 200 = 31
+        assertThat(finance.getAccount(usd).getAvgRate()).isEqualByComparingTo("31.000000");
+    }
+
+    @Test
+    void doviz_satimi_kur_kari_gelir_karti_gerektirmeden_kasaya_yazilir() {
+        long usd = usdAccount();
+        long try_ = finance.defaultCashAccountId();
+        finance.fxExchange(new FinanceService.FxCommand(LocalDate.now(), usd, try_, true,
+                new BigDecimal("100"), new BigDecimal("30"), null)); // maliyet: 30/USD
+        BigDecimal tryBefore = finance.accountBalance(try_).getAmount();
+
+        finance.fxExchange(new FinanceService.FxCommand(LocalDate.now(), usd, try_, false,
+                new BigDecimal("40"), new BigDecimal("33"), "Satış"));
+
+        assertThat(finance.accountBalance(usd).getAmount()).isEqualByComparingTo("60"); // 100-40
+        // Satış hasılatı: 40*33 = 1320 (maliyet 40*30=1200 + kur karı 120)
+        assertThat(finance.accountBalance(try_).getAmount()).isEqualByComparingTo(tryBefore.add(new BigDecimal("1320")));
+    }
+
+    @Test
+    void doviz_satimi_kur_zarari_kasadan_dusulur() {
+        long usd = usdAccount();
+        long try_ = finance.defaultCashAccountId();
+        finance.fxExchange(new FinanceService.FxCommand(LocalDate.now(), usd, try_, true,
+                new BigDecimal("100"), new BigDecimal("30"), null));
+        BigDecimal tryBefore = finance.accountBalance(try_).getAmount();
+
+        finance.fxExchange(new FinanceService.FxCommand(LocalDate.now(), usd, try_, false,
+                new BigDecimal("40"), new BigDecimal("28"), "Zararına satış"));
+
+        // Hasılat: 40*28 = 1120 (maliyet 1200'den 80 az -> kur zararı 80 kasadan düşer)
+        assertThat(finance.accountBalance(try_).getAmount()).isEqualByComparingTo(tryBefore.add(new BigDecimal("1120")));
+    }
+
+    @Test
+    void kasa_sayimi_fark_yoksa_gerekce_gerekmez() {
+        long kasa = finance.defaultCashAccountId();
+        BigDecimal expected = finance.accountBalance(kasa).getAmount();
+        var count = finance.countCash(kasa, LocalDate.now(), expected, null);
+        assertThat(count.getDifference()).isEqualByComparingTo("0");
+        assertThat(count.getAdjustmentDocNo()).isNull();
+        assertThat(finance.accountBalance(kasa).getAmount()).isEqualByComparingTo(expected); // değişmedi
+    }
+
+    @Test
+    void kasa_sayimi_fark_varsa_gerekcesiz_reddedilir() {
+        long kasa = finance.defaultCashAccountId();
+        BigDecimal expected = finance.accountBalance(kasa).getAmount();
+        assertThatThrownBy(() -> finance.countCash(kasa, LocalDate.now(), expected.add(new BigDecimal("50")), null))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> finance.countCash(kasa, LocalDate.now(), expected.add(new BigDecimal("50")), "  "))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void kasa_sayimi_fazlaligi_kasaya_gelir_yazar_ve_bakiyeyi_esitler() {
+        long kasa = finance.defaultCashAccountId();
+        BigDecimal expected = finance.accountBalance(kasa).getAmount();
+        BigDecimal counted = expected.add(new BigDecimal("75"));
+
+        var count = finance.countCash(kasa, LocalDate.now(), counted, "Sayımda fazla çıktı");
+
+        assertThat(count.getDifference()).isEqualByComparingTo("75");
+        assertThat(count.getAdjustmentDocNo()).isNotNull();
+        assertThat(finance.accountBalance(kasa).getAmount()).isEqualByComparingTo(counted);
+        assertThat(finance.cashCounts(kasa)).extracting("id").contains(count.getId());
+    }
+
+    @Test
+    void kasa_sayimi_aciginin_kasadan_dusulur_ve_bakiyeyi_esitler() {
+        long kasa = finance.defaultCashAccountId();
+        BigDecimal expected = finance.accountBalance(kasa).getAmount();
+        BigDecimal counted = expected.subtract(new BigDecimal("40"));
+
+        var count = finance.countCash(kasa, LocalDate.now(), counted, "Sayımda açık çıktı");
+
+        assertThat(count.getDifference()).isEqualByComparingTo("-40");
+        assertThat(finance.accountBalance(kasa).getAmount()).isEqualByComparingTo(counted);
+    }
+
+    @Test
+    void ayni_para_birimiyle_doviz_islemi_reddedilir() {
+        long try2 = finance.createAccount("TRY2-" + System.nanoTime(), "İkinci TL Kasa",
+                FinAccountKind.KASA, "TRY", BigDecimal.ZERO, false).getId();
+        long try1 = finance.defaultCashAccountId();
+        assertThatThrownBy(() -> finance.fxExchange(new FinanceService.FxCommand(LocalDate.now(),
+                try2, try1, true, BigDecimal.TEN, BigDecimal.ONE, null)))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
     @Test
     void tahsilat_kasayi_artirir_cariyi_alacaklandirir() {
         long kasa = finance.defaultCashAccountId();

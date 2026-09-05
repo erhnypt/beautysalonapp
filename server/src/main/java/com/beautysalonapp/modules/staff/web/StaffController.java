@@ -5,6 +5,7 @@ import com.beautysalonapp.modules.staff.domain.CommissionBasis;
 import com.beautysalonapp.modules.staff.domain.CommissionRule;
 import com.beautysalonapp.modules.staff.domain.CommissionScope;
 import com.beautysalonapp.modules.staff.domain.CommissionStatus;
+import com.beautysalonapp.modules.staff.domain.SalaryPeriod;
 import com.beautysalonapp.modules.staff.domain.Staff;
 import com.beautysalonapp.modules.staff.domain.StaffAdvance;
 import com.beautysalonapp.modules.staff.domain.StaffClass;
@@ -87,6 +88,16 @@ public class StaffController {
 
     public record AdvanceRequest(@NotNull @Positive BigDecimal amount, Long accountId) {}
 
+    public record SalaryPeriodView(long id, String periodYm, BigDecimal gross, BigDecimal deductions,
+                                   BigDecimal net, boolean locked) {
+        static SalaryPeriodView of(SalaryPeriod p) {
+            return new SalaryPeriodView(p.getId(), p.getPeriodYm(), p.getGross(), p.getDeductions(),
+                    p.getNet(), p.isLocked());
+        }
+    }
+
+    public record ClosePeriodRequest(@NotNull String period, BigDecimal gross, BigDecimal deductions) {}
+
     @GetMapping
     public List<StaffView> list() {
         return service.list().stream().map(StaffView::of).toList();
@@ -143,6 +154,17 @@ public class StaffController {
     @PreAuthorize("hasAuthority('STAFF_EDIT')")
     public AdvanceView giveAdvance(@PathVariable long id, @Valid @RequestBody AdvanceRequest r) {
         return AdvanceView.of(service.giveAdvance(id, r.amount(), r.accountId()));
+    }
+
+    @GetMapping("/{id}/salary-periods")
+    public List<SalaryPeriodView> salaryPeriods(@PathVariable long id) {
+        return service.salaryPeriods(id).stream().map(SalaryPeriodView::of).toList();
+    }
+
+    @PostMapping("/{id}/salary-periods/close")
+    @PreAuthorize("hasAuthority('STAFF_EDIT')")
+    public SalaryPeriodView closePeriod(@PathVariable long id, @Valid @RequestBody ClosePeriodRequest r) {
+        return SalaryPeriodView.of(service.closePeriod(id, r.period(), r.gross(), r.deductions()));
     }
 
     @GetMapping("/reports/performance")

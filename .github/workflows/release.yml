@@ -68,6 +68,7 @@ jobs:
           path: |
             packaging/dist/out/${{ matrix.artifact }}
             packaging/dist/out/checksums.txt
+            packaging/dist/out/LICENSES/THIRD-PARTY.txt
 
       - name: GitHub Release'e ekle (etiketliyse)
         if: startsWith(github.ref, 'refs/tags/')
@@ -76,3 +77,4 @@ jobs:
           files: |
             packaging/dist/out/${{ matrix.artifact }}
             packaging/dist/out/checksums.txt
+            packaging/dist/out/LICENSES/THIRD-PARTY.txt

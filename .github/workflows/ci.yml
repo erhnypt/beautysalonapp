@@ -26,6 +26,15 @@ jobs:
       - name: Derleme + test (ArchUnit, MockMvc, Testcontainers-siz H2)
         working-directory: server
         run: ./mvnw -B -ntp verify
+      - name: Yasaklı lisans taraması (AGPL/GPL — plan §7.3)
+        run: ./packaging/scripts/check-licenses.sh server/target/generated-sources/license/THIRD-PARTY.txt
+      - name: THIRD-PARTY.txt yükle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-third-party
+          path: server/target/generated-sources/license/THIRD-PARTY.txt
+          if-no-files-found: ignore
       - name: Test raporlarını yükle
         if: always()
         uses: actions/upload-artifact@v4
@@ -74,6 +83,8 @@ jobs:
           cache: maven
       - working-directory: license-server
         run: ./mvnw -B -ntp verify
+      - name: Yasaklı lisans taraması (AGPL/GPL — plan §7.3)
+        run: ./packaging/scripts/check-licenses.sh license-server/target/generated-sources/license/THIRD-PARTY.txt
 
   web:
     name: web — build

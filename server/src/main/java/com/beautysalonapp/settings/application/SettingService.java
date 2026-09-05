@@ -1,6 +1,7 @@
 package com.beautysalonapp.settings.application;
 
 import com.beautysalonapp.audit.application.AuditService;
+import com.beautysalonapp.core.context.BranchContextHolder;
 import com.beautysalonapp.settings.domain.Setting;
 import com.beautysalonapp.settings.infrastructure.SettingRepository;
 import org.springframework.stereotype.Service;
@@ -13,8 +14,6 @@ import java.util.Optional;
 @Transactional
 public class SettingService {
 
-    private static final Long DEFAULT_BRANCH = 1L;
-
     private final SettingRepository repository;
     private final AuditService auditService;
 
@@ -25,12 +24,12 @@ public class SettingService {
 
     @Transactional(readOnly = true)
     public List<Setting> all() {
-        return repository.findAllByBranchIdOrderByKey(DEFAULT_BRANCH);
+        return repository.findAllByBranchIdOrderByKey(BranchContextHolder.getOrDefault());
     }
 
     @Transactional(readOnly = true)
     public Optional<String> get(String key) {
-        return repository.findByBranchIdAndKey(DEFAULT_BRANCH, key).map(Setting::getValue);
+        return repository.findByBranchIdAndKey(BranchContextHolder.getOrDefault(), key).map(Setting::getValue);
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +43,7 @@ public class SettingService {
     }
 
     public Setting put(String key, String value, String description, boolean secret) {
-        Setting s = repository.findByBranchIdAndKey(DEFAULT_BRANCH, key).orElse(null);
+        Setting s = repository.findByBranchIdAndKey(BranchContextHolder.getOrDefault(), key).orElse(null);
         String oldValue = s == null ? null : s.getValue();
         if (s == null) {
             s = new Setting(key, value, description, secret);

@@ -133,8 +133,10 @@ public class ReportService {
                 sqlToday);
         int criticalStock = nzInt(jdbc.queryForObject("""
                 select count(*) from (
-                  select i.id from item i join stock_level sl on sl.item_id = i.id
-                  where i.reorder_level is not null and i.deleted = false""" + bf("i.branch_id", branchId) + """
+                  select i.id from item i
+                    join stock_level sl on sl.item_id = i.id
+                    join warehouse w on w.id = sl.warehouse_id
+                  where i.reorder_level is not null and i.deleted = false""" + bf("w.branch_id", branchId) + """
 
                   group by i.id, i.reorder_level
                   having sum(sl.qty_base) <= i.reorder_level

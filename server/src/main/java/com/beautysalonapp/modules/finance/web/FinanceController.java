@@ -2,6 +2,7 @@ package com.beautysalonapp.modules.finance.web;
 
 import com.beautysalonapp.modules.finance.application.FinanceService;
 import com.beautysalonapp.modules.finance.domain.CardDirection;
+import com.beautysalonapp.modules.finance.domain.CashCount;
 import com.beautysalonapp.modules.finance.domain.CashTransaction;
 import com.beautysalonapp.modules.finance.domain.CashTxnType;
 import com.beautysalonapp.modules.finance.domain.FinAccount;
@@ -38,7 +39,7 @@ public class FinanceController {
 
     // --- hesap planı ---
     public record AccountView(long id, String code, String name, FinAccountKind kind, String currency,
-                              BigDecimal openingBalance, BigDecimal balance, boolean isDefault) {}
+                              BigDecimal openingBalance, BigDecimal balance, boolean isDefault, BigDecimal avgRate) {}
 
     public record CreateAccountRequest(@NotBlank String code, @NotBlank String name,
                                        @NotNull FinAccountKind kind, String currency,
@@ -103,6 +104,20 @@ public class FinanceController {
 
     public record VoidRequest(@NotBlank String reason) {}
 
+    public record FxRequest(LocalDate date, @NotNull Long fxAccountId, @NotNull Long tryAccountId,
+                            @NotNull Boolean buy, @NotNull @Positive BigDecimal fxAmount,
+                            @NotNull @Positive BigDecimal rate, String description) {}
+
+    public record CashCountRequest(LocalDate date, @NotNull BigDecimal countedAmount, String reason) {}
+
+    public record CashCountView(long id, LocalDate date, BigDecimal expectedAmount, BigDecimal countedAmount,
+                                BigDecimal difference, String reason, String adjustmentDocNo) {
+        static CashCountView of(CashCount c) {
+            return new CashCountView(c.getId(), c.getDate(), c.getExpectedAmount(), c.getCountedAmount(),
+                    c.getDifference(), c.getReason(), c.getAdjustmentDocNo());
+        }
+    }
+
     @GetMapping("/transactions")
     public List<TxnView> transactions(@RequestParam long accountId,
                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -131,6 +146,24 @@ public class FinanceController {
                 r.counterAccountId(), null, null, r.amount(), r.description()));
     }
 
+    @PostMapping("/fx")
+    @PreAuthorize("hasAuthority('FINANCE_ADD')")
+    public TxnView fx(@Valid @RequestBody FxRequest r) {
+        return TxnView.of(finance.fxExchange(new FinanceService.FxCommand(r.date(), r.fxAccountId(),
+                r.tryAccountId(), r.buy(), r.fxAmount(), r.rate(), r.description())));
+    }
+
+    @GetMapping("/accounts/{id}/cash-counts")
+    public List<CashCountView> cashCounts(@PathVariable long id) {
+        return finance.cashCounts(id).stream().map(CashCountView::of).toList();
+    }
+
+    @PostMapping("/accounts/{id}/cash-counts")
+    @PreAuthorize("hasAuthority('FINANCE_ADD')")
+    public CashCountView countCash(@PathVariable long id, @Valid @RequestBody CashCountRequest r) {
+        return CashCountView.of(finance.countCash(id, r.date(), r.countedAmount(), r.reason()));
+    }
+
     @PostMapping("/transactions/{id}/void")
     @PreAuthorize("hasAuthority('FINANCE_VOID')")
     public void voidTxn(@PathVariable long id, @Valid @RequestBody VoidRequest r) {
@@ -148,6 +181,6 @@ public class FinanceController {
     private AccountView toView(FinAccount a) {
         var bal = finance.accountBalance(a.getId());
         return new AccountView(a.getId(), a.getCode(), a.getName(), a.getKind(), a.getCurrency(),
-                a.getOpeningBalance(), bal.getAmount(), a.isDefault());
+                a.getOpeningBalance(), bal.getAmount(), a.isDefault(), a.getAvgRate());
     }
 }

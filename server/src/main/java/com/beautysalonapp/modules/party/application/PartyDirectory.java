@@ -23,7 +23,8 @@ public interface PartyDirectory {
     /** Fatura/e-Fatura hazırlığı için: vergi kimliği + varsayılan adres (Faz 8). */
     java.util.Optional<EInvoiceParty> eInvoiceInfo(long partyId);
 
-    record PartyRef(long id, String code, PartyType type, String title, boolean anonymized) {}
+    record PartyRef(long id, String code, PartyType type, String title, boolean anonymized,
+                    java.math.BigDecimal riskLimit) {}
 
     record EInvoiceParty(
             long id, String title, String taxId, String tcNo,

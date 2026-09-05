@@ -13,11 +13,13 @@ import com.beautysalonapp.modules.staff.domain.CommissionCalc;
 import com.beautysalonapp.modules.staff.domain.CommissionRule;
 import com.beautysalonapp.modules.staff.domain.CommissionScope;
 import com.beautysalonapp.modules.staff.domain.CommissionStatus;
+import com.beautysalonapp.modules.staff.domain.SalaryPeriod;
 import com.beautysalonapp.modules.staff.domain.Staff;
 import com.beautysalonapp.modules.staff.domain.StaffAdvance;
 import com.beautysalonapp.modules.staff.domain.StaffClass;
 import com.beautysalonapp.modules.staff.domain.StaffCommission;
 import com.beautysalonapp.modules.staff.infrastructure.CommissionRuleRepository;
+import com.beautysalonapp.modules.staff.infrastructure.SalaryPeriodRepository;
 import com.beautysalonapp.modules.staff.infrastructure.StaffAdvanceRepository;
 import com.beautysalonapp.modules.staff.infrastructure.StaffClassRepository;
 import com.beautysalonapp.modules.staff.infrastructure.StaffCommissionRepository;
@@ -29,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
@@ -46,6 +49,7 @@ public class StaffService implements CommissionPort {
     private final CommissionRuleRepository rules;
     private final StaffCommissionRepository commissions;
     private final StaffAdvanceRepository advances;
+    private final SalaryPeriodRepository salaryPeriods;
     private final PartyDirectory partyDirectory;
     private final PartyLedger partyLedger;
     private final FinancePort finance;
@@ -53,6 +57,7 @@ public class StaffService implements CommissionPort {
 
     public StaffService(StaffRepository staff, StaffClassRepository classes, CommissionRuleRepository rules,
                         StaffCommissionRepository commissions, StaffAdvanceRepository advances,
+                        SalaryPeriodRepository salaryPeriods,
                         PartyDirectory partyDirectory, PartyLedger partyLedger, FinancePort finance,
                         AuditService audit) {
         this.staff = staff;
@@ -60,6 +65,7 @@ public class StaffService implements CommissionPort {
         this.rules = rules;
         this.commissions = commissions;
         this.advances = advances;
+        this.salaryPeriods = salaryPeriods;
         this.partyDirectory = partyDirectory;
         this.partyLedger = partyLedger;
         this.finance = finance;
@@ -161,6 +167,10 @@ public class StaffService implements CommissionPort {
         }
 
         String periodYm = (c.onDate() == null ? LocalDate.now() : c.onDate()).format(YM);
+        if (salaryPeriods.existsByStaffIdAndPeriodYmAndLockedTrue(s.getId(), periodYm)) {
+            log.debug("Prim tahakkuku atlandı: {} dönemi personel {} için kapalı", periodYm, s.getId());
+            return;
+        }
         BigDecimal rateForRecord = rr.getBasis() == CommissionBasis.RATE ? rr.getValue() : null;
         commissions.save(new StaffCommission(s.getId(), periodYm, c.sourceType(), c.sourceRef(),
                 base, rateForRecord, amount));
@@ -221,6 +231,10 @@ public class StaffService implements CommissionPort {
     // --- prim ödeme / avans ---------------------------------------
 
     public BigDecimal payCommissions(long staffId, String periodYm, Long cashAccountId) {
+        if (salaryPeriods.existsByStaffIdAndPeriodYmAndLockedTrue(staffId, periodYm)) {
+            throw new BusinessRuleException("period_locked",
+                    "Maaş dönemi " + periodYm + " kapatılmış, prim ödemesi yapılamaz");
+        }
         Staff s = get(staffId);
         List<StaffCommission> pending = commissions.findAllByStaffIdAndPeriodYmAndStatus(
                 staffId, periodYm, CommissionStatus.TAHAKKUK);
@@ -242,17 +256,60 @@ public class StaffService implements CommissionPort {
         if (amount == null || amount.signum() <= 0) {
             throw new BusinessRuleException("bad_amount", "Avans tutarı pozitif olmalı");
         }
+        LocalDate today = LocalDate.now();
+        String periodYm = today.format(YM);
+        if (salaryPeriods.existsByStaffIdAndPeriodYmAndLockedTrue(staffId, periodYm)) {
+            throw new BusinessRuleException("period_locked",
+                    "Maaş dönemi " + periodYm + " kapatılmış, avans girilemez");
+        }
         Staff s = get(staffId);
         long acc = partyLedger.resolveAccount(s.getPartyId(), AccountKind.NORMAL, "TRY");
         long cashAcc = accountId != null ? accountId : finance.defaultCashAccountId();
         String docNo = "ADV-" + staffId + "-" + System.currentTimeMillis();
-        finance.pay(new FinancePort.PayCommand(LocalDate.now(), cashAcc, acc, null, amount, "TRY",
+        finance.pay(new FinancePort.PayCommand(today, cashAcc, acc, null, amount, "TRY",
                 "Personel avansı", "ADVANCE", docNo, "adv"));
-        StaffAdvance adv = new StaffAdvance(staffId, LocalDate.now(), amount, cashAcc);
+        StaffAdvance adv = new StaffAdvance(staffId, today, amount, cashAcc);
         adv.setDocNo(docNo);
         advances.save(adv);
         audit.record("STAFF_ADVANCE", "Staff", staffId, "Avans verildi: " + amount);
         return adv;
+    }
+
+    // --- maaş dönemi kapama (§10.2 kilit kuralı) -------------------
+
+    @Transactional(readOnly = true)
+    public List<SalaryPeriod> salaryPeriods(long staffId) {
+        return salaryPeriods.findAllByStaffIdOrderByPeriodYmDesc(staffId);
+    }
+
+    /**
+     * Maaş dönemini kapatır: dönem kilitlenir, o andan sonra bu personel + dönem için
+     * yeni avans/prim tahakkuku/ödemesi girilemez (plan §10.2). Dönem içindeki mevcut
+     * avanslar {@code closedPeriod} ile işaretlenir (mutabakat raporu için).
+     */
+    public SalaryPeriod closePeriod(long staffId, String periodYm, BigDecimal gross, BigDecimal deductions) {
+        Staff s = get(staffId);
+        SalaryPeriod period = salaryPeriods.findByStaffIdAndPeriodYm(s.getId(), periodYm)
+                .orElseGet(() -> new SalaryPeriod(s.getId(), periodYm));
+        if (period.isLocked()) {
+            throw new BusinessRuleException("period_already_locked",
+                    "Maaş dönemi " + periodYm + " zaten kapalı");
+        }
+        BigDecimal g = gross == null ? BigDecimal.ZERO : gross;
+        BigDecimal d = deductions == null ? BigDecimal.ZERO : deductions;
+        period.setGross(g);
+        period.setDeductions(d);
+        period.setNet(g.subtract(d));
+        period.lock();
+        salaryPeriods.save(period);
+
+        YearMonth ym = YearMonth.parse(periodYm, YM);
+        advances.findAllByStaffIdAndDateBetween(s.getId(), ym.atDay(1), ym.atEndOfMonth())
+                .forEach(a -> { a.setClosedPeriod(periodYm); advances.save(a); });
+
+        audit.record("SALARY_PERIOD_CLOSE", "Staff", staffId,
+                periodYm + " dönemi kapatıldı (net " + period.getNet() + ")");
+        return period;
     }
 
     @Transactional(readOnly = true)

@@ -16,10 +16,16 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** Şube tanımlama (§9.1, Faz 8 "merkezi işletme" şeması). Kapsam: docs/adr/0006-merkezi-sube.md. */
+/**
+ * Şube tanımlama (§9.1, Faz 8 "merkezi işletme" şeması). Kapsam: docs/adr/0006-merkezi-sube.md.
+ *
+ * <p>{@link #list()} her kimliği doğrulanmış kullanıcı için açıktır — arayüzdeki şube seçici
+ * (BranchSwitcher) tüm rollerde göründüğünden (KASIYER/PERSONEL dahil), listelemeyi
+ * SETTINGS_VIEW'e bağlamak o rollerin aktif şubelerini hiç görememesine yol açar. Değiştirme
+ * işlemleri (create/update/headquarters/delete) SETTINGS_EDIT ile ayrıca korunur.
+ */
 @RestController
 @RequestMapping("/api/v1/branches")
-@PreAuthorize("hasAuthority('SETTINGS_VIEW')")
 public class BranchController {
 
     private final BranchService service;

@@ -26,7 +26,7 @@ class NotificationServiceTest {
         long id = partyService.create(PartyType.MUSTERI, null, "Bildirim Test " + System.nanoTime(),
                 null, null, "05551234567", "test@example.com", null, null).getId();
         partyService.update(id, null, null, null, "05551234567", "test@example.com", null, null,
-                true, true, IysStatus.IZINLI);
+                true, true, IysStatus.IZINLI, null);
         return id;
     }
 
@@ -55,7 +55,7 @@ class NotificationServiceTest {
         long id = partyService.create(PartyType.MUSTERI, null, "İzinsiz " + System.nanoTime(),
                 null, null, "05559876543", null, null, null).getId();
         // sms_consent true ama iys BILINMIYOR
-        partyService.update(id, null, null, null, "05559876543", null, null, null, true, false, null);
+        partyService.update(id, null, null, null, "05559876543", null, null, null, true, false, null, null);
 
         long beforeSkipped = queued(NotificationStatus.SKIPPED);
         notifications.enqueue(NotificationType.KAMPANYA, NotificationChannel.SMS, id, null,

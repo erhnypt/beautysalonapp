@@ -188,9 +188,12 @@ public final class Mt940Parser {
         int mm = Integer.parseInt(s.substring(0, 2));
         int dd = Integer.parseInt(s.substring(2, 4));
         int year = ref.getYear();
-        // yıl dönümü: işlem ayı, valör ayından büyükse bir önceki yıl
+        // yıl dönümü: işlem ayı valör ayından çok büyükse bir önceki yıl (ör. valör Ocak,
+        // işlem Aralık); çok küçükse bir sonraki yıl (ör. valör Aralık, işlem Ocak).
         if (mm > ref.getMonthValue() + 1) {
             year--;
+        } else if (mm < ref.getMonthValue() - 1) {
+            year++;
         }
         return LocalDate.of(year, mm, dd);
     }

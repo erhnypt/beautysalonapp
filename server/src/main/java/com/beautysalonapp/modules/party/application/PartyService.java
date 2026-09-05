@@ -87,7 +87,8 @@ public class PartyService implements PartyDirectory {
     public Party update(long id, String title, String firstName, String lastName,
                         String phone, String email, String taxId, String tcNo,
                         Boolean smsConsent, Boolean emailConsent,
-                        com.beautysalonapp.modules.party.domain.IysStatus iysStatus) {
+                        com.beautysalonapp.modules.party.domain.IysStatus iysStatus,
+                        java.math.BigDecimal riskLimit) {
         Party p = get(id);
         if (p.isAnonymized()) {
             throw new BusinessRuleException("anonymized", "Anonimleştirilmiş cari düzenlenemez");
@@ -101,6 +102,9 @@ public class PartyService implements PartyDirectory {
         if (iysStatus != null) {
             p.setIysStatus(iysStatus);
             p.setConsentDate(Instant.now());
+        }
+        if (riskLimit != null) {
+            p.setRiskLimit(riskLimit.signum() <= 0 ? null : riskLimit);
         }
         audit.record("PARTY_UPDATE", "Party", id, "Cari güncellendi: " + p.getCode());
         return p;
@@ -206,7 +210,7 @@ public class PartyService implements PartyDirectory {
     }
 
     private PartyRef toRef(Party p) {
-        return new PartyRef(p.getId(), p.getCode(), p.getType(), p.getTitle(), p.isAnonymized());
+        return new PartyRef(p.getId(), p.getCode(), p.getType(), p.getTitle(), p.isAnonymized(), p.getRiskLimit());
     }
 
     private void applyContact(Party p, String phone, String email, String taxId, String tcNo) {

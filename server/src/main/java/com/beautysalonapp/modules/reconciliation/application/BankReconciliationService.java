@@ -25,6 +25,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -98,7 +103,7 @@ public class BankReconciliationService {
     public BankStatement importStatement(long finAccountId, StatementFormat format, String originalFilename,
                                          byte[] content) {
         BankAccountView account = requireAccount(finAccountId);
-        String text = new String(content, StandardCharsets.UTF_8);
+        String text = decodeStatement(content);
         ParsedStatement parsed = switch (format) {
             case MT940 -> Mt940Parser.parse(text);
             case CSV -> {
@@ -136,6 +141,10 @@ public class BankReconciliationService {
     public void confirmMatch(long lineId, long txnId) {
         BankStatementLine line = requireLine(lineId);
         requireUnresolvedOrMatched(line);
+        if (lines.existsByMatchedTxnIdAndIdNot(txnId, lineId)) {
+            throw new BusinessRuleException("txn_already_matched",
+                    "Bu kasa hareketi zaten başka bir ekstre satırıyla eşleştirilmiş: #" + txnId);
+        }
         line.markMatched(txnId, null);
         recomputeStatus(line.getStatementId());
         audit.record("BANK_LINE_MATCH", "BankStatementLine", lineId, "Elle eşleştirildi: hareket #" + txnId);
@@ -268,6 +277,23 @@ public class BankReconciliationService {
             return Integer.parseInt(settings.getOrDefault("reconciliation.autoMatchThreshold", "80").trim());
         } catch (NumberFormatException e) {
             return StatementMatcher.AUTO_THRESHOLD;
+        }
+    }
+
+    /**
+     * Türk bankalarının ekstre dosyaları çoğunlukla UTF-8 dışında (Windows-1254/ISO-8859-9)
+     * kodlanır. UTF-8 olarak sıkı çözümleme başarısız olursa (geçersiz bayt dizisi), sessizce
+     * "?" karakterleriyle bozmak yerine Windows-1254'e düşülür — o da Türkçe karakterlerin
+     * geçerli olmayan bir baytı olmadığından her zaman başarılı olur.
+     */
+    private static String decodeStatement(byte[] content) {
+        CharsetDecoder strictUtf8 = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        try {
+            return strictUtf8.decode(ByteBuffer.wrap(content)).toString();
+        } catch (CharacterCodingException e) {
+            return new String(content, Charset.forName("windows-1254"));
         }
     }
 

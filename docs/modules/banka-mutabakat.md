@@ -122,9 +122,8 @@ girmez ve zaten şifrelenmeyen `cash_transaction.description` ile aynı nitelikt
 (tutarlılık). Ekstre satırı bazen bir karşı tarafın adını içerebilir (ör. "Ahmet Yılmaz'dan
 havale") ama bu, kartlı bir müşteri kaydı değil, muhasebe defteri metnidir. Hiçbir
 `log.*` çağrısı bu alanları yazmaz (yalnızca `audit_log`'a, mevcut `cash_transaction`
-iptal gerekçeleri gibi serbest metin özetlerle aynı düzeyde). `docs/04-guvenlik-kvkk.md`
-(CLAUDE.md'nin referans verdiği dosya) bu depoda henüz yok — önceden var olan bir boşluk;
-`docs/guvenlik/guvenlik-gozden-gecirme.md` bu değerlendirmenin yerini kısmen tutuyor.
+iptal gerekçeleri gibi serbest metin özetlerle aynı düzeyde). Bkz. `docs/04-guvenlik-kvkk.md`
+§1 madde 4 — bu tam olarak orada tanımlanan "işletmenin kendi muhasebe metni" istisnası.
 
 ## Test
 

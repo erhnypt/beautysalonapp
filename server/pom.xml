@@ -24,6 +24,7 @@
         <springdoc.version>2.6.0</springdoc.version>
         <archunit.version>1.5.0</archunit.version>
         <bouncycastle.version>1.85.2</bouncycastle.version>
+        <license-maven-plugin.version>2.5.0</license-maven-plugin.version>
     </properties>
 
     <dependencies>
@@ -152,6 +153,28 @@
                          normal 'mvn test'ten dışlanır. Çalıştırma: ./mvnw -Pperf test | ./mvnw -Ppg test -->
                     <excludedGroups>perf,pg</excludedGroups>
                 </configuration>
+            </plugin>
+            <!-- Plan §7.3: her build'de SBOM/THIRD-PARTY üretimi. CI bu dosyayı yasaklı
+                 lisans (AGPL/GPL) taraması için kullanır; paketleme scripti kurulum
+                 paketine kopyalar (bkz. packaging/scripts/build-all.sh). -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>${license-maven-plugin.version}</version>
+                <configuration>
+                    <excludedScopes>test</excludedScopes>
+                    <failOnMissing>false</failOnMissing>
+                    <failOnBlacklist>false</failOnBlacklist>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>generate-third-party</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>add-third-party</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

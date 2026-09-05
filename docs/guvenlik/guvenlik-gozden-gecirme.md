@@ -144,6 +144,5 @@ hiçbiri plandaki şifreleme tetikleyicilerine (TC no, telefon, sağlık/alerji 
 girmiyor — ayrıntılı gerekçe her modülün kendi dokümanında ("KVKK değerlendirmesi" bölümü,
 bkz. `docs/modules/banka-mutabakat.md`, `docs/modules/e-fatura.md`). e-Fatura mevcut
 şifreli `Party.taxId/tcNo` alanlarını yalnızca **okur**, yeni düz metin kalıcılık eklemez.
-`docs/04-guvenlik-kvkk.md` (CLAUDE.md'nin referans verdiği dosya) bu depoda hâlâ yok —
-bu, bu oturumdan önce var olan bir boşluktur; madde 10'daki "avukat + KVKK danışmanı"
-adımıyla birlikte ele alınmalı.
+`docs/04-guvenlik-kvkk.md` (CLAUDE.md'nin referans verdiği dosya) artık mevcut — bu
+oturumda yazıldı; §10'daki "avukat + KVKK danışmanı" adımı hâlâ kod dışı, açık kalıyor.

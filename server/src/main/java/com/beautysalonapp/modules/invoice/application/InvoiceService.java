@@ -25,6 +25,8 @@ import com.beautysalonapp.modules.party.application.PartyLedger;
 import com.beautysalonapp.modules.party.domain.AccountKind;
 import com.beautysalonapp.modules.stock.application.StockPort;
 import com.beautysalonapp.settings.application.SettingService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -38,7 +40,9 @@ import java.util.List;
 @Transactional
 public class InvoiceService {
 
+    private static final Logger log = LoggerFactory.getLogger(InvoiceService.class);
     private static final Long BRANCH = 1L;
+    private static final String RISK_LIMIT_SETTING = "party.riskLimit.mode"; // ALLOW | WARN | BLOCK
 
     private final InvoiceRepository invoices;
     private final InvoiceLineRepository lineRepo;
@@ -93,7 +97,7 @@ public class InvoiceService {
     }
 
     public Invoice create(CreateInvoiceCommand cmd) {
-        partyDirectory.require(cmd.partyId());
+        var party = partyDirectory.require(cmd.partyId());
         AccountKind accKind = cmd.type() == InvoiceType.PERAKENDE ? AccountKind.RETAIL : AccountKind.NORMAL;
         long partyAccountId = partyLedger.resolveAccount(cmd.partyId(), accKind, "TRY");
 
@@ -110,6 +114,10 @@ public class InvoiceService {
                 .map(l -> new LineInput(l.quantity(), l.unitPrice(), l.discountRate(), l.vatRate()))
                 .toList();
         InvoiceCalculator.Totals totals = InvoiceCalculator.totals(calcInputs);
+
+        if (cmd.type().isPartyDebit()) {
+            enforceRiskLimit(party, partyAccountId, totals.grandTotal());
+        }
 
         LocalDate date = cmd.date() == null ? LocalDate.now() : cmd.date();
         String docNo = sequences.next(BRANCH, "INVOICE_" + cmd.type().name(), seriesPrefix(cmd.type()));
@@ -277,6 +285,25 @@ public class InvoiceService {
     @Transactional(readOnly = true)
     public Page<Invoice> search(InvoiceType type, Long partyId, LocalDate from, LocalDate to, Pageable p) {
         return invoices.search(type, partyId, from, to, p);
+    }
+
+    /** Risk limiti aşımında uyarı/engelleme (plan §10.3, ayar: {@code party.riskLimit.mode}). */
+    private void enforceRiskLimit(PartyDirectory.PartyRef party, long partyAccountId, BigDecimal addedDebit) {
+        if (party.riskLimit() == null || party.riskLimit().signum() <= 0) {
+            return;
+        }
+        BigDecimal projected = partyLedger.balance(partyAccountId).getAmount().add(addedDebit);
+        if (projected.compareTo(party.riskLimit()) <= 0) {
+            return;
+        }
+        String msg = "Risk limiti aşılıyor: " + party.title() + " (limit " + party.riskLimit()
+                + ", işlem sonrası bakiye " + projected.stripTrailingZeros().toPlainString() + ")";
+        String mode = settings.getOrDefault(RISK_LIMIT_SETTING, "WARN").toUpperCase();
+        switch (mode) {
+            case "BLOCK" -> throw new BusinessRuleException("risk_limit_exceeded", msg);
+            case "ALLOW" -> { /* sessiz */ }
+            default -> log.warn(msg);
+        }
     }
 
     private static String seriesPrefix(InvoiceType t) {
