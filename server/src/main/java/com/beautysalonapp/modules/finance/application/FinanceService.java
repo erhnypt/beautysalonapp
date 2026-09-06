@@ -162,6 +162,11 @@ public class FinanceService implements FinancePort {
         return t;
     }
 
+    @Transactional(readOnly = true)
+    public CashTransaction getTransaction(long id) {
+        return txns.findById(id).orElseThrow(() -> new NotFoundException("Hareket", id));
+    }
+
     public void voidTransaction(long id, String reason) {
         CashTransaction t = txns.findById(id).orElseThrow(() -> new NotFoundException("Hareket", id));
         if (t.isVoided()) {

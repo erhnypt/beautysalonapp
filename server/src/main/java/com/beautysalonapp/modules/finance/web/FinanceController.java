@@ -1,6 +1,7 @@
 package com.beautysalonapp.modules.finance.web;
 
 import com.beautysalonapp.modules.finance.application.FinanceService;
+import com.beautysalonapp.modules.finance.application.VoucherService;
 import com.beautysalonapp.modules.finance.domain.CardDirection;
 import com.beautysalonapp.modules.finance.domain.CashCount;
 import com.beautysalonapp.modules.finance.domain.CashTransaction;
@@ -13,6 +14,10 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,9 +37,11 @@ import java.util.List;
 public class FinanceController {
 
     private final FinanceService finance;
+    private final VoucherService vouchers;
 
-    public FinanceController(FinanceService finance) {
+    public FinanceController(FinanceService finance, VoucherService vouchers) {
         this.finance = finance;
+        this.vouchers = vouchers;
     }
 
     // --- hesap planı ---
@@ -176,6 +183,19 @@ public class FinanceController {
     @PreAuthorize("hasAuthority('FINANCE_VOID')")
     public void voidTxn(@PathVariable long id, @Valid @RequestBody VoidRequest r) {
         finance.voidTransaction(id, r.reason());
+    }
+
+    /** Dekont PDF (plan §10.6) — işlem sonu tek tıkla yazdır/PDF. */
+    @GetMapping("/transactions/{id}/voucher")
+    public ResponseEntity<byte[]> voucher(@PathVariable long id) {
+        var t = finance.getTransaction(id);
+        byte[] pdf = vouchers.renderVoucher(t);
+        String filename = "dekont-" + (t.getDocNo() == null ? id : t.getDocNo()) + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline().filename(filename).build().toString())
+                .body(pdf);
     }
 
     @GetMapping("/reports/income-expense")
