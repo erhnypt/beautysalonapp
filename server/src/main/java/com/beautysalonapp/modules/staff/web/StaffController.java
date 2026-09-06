@@ -174,4 +174,10 @@ public class StaffController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
         return service.performance(from, to);
     }
+
+    @GetMapping("/reports/salary-reconciliation")
+    @PreAuthorize("hasAuthority('STAFF_REPORT')")
+    public List<StaffService.SalaryReconciliationRow> salaryReconciliation(@RequestParam String period) {
+        return service.salaryReconciliation(period);
+    }
 }

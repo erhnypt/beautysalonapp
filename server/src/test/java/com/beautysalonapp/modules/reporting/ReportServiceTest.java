@@ -33,6 +33,29 @@ class ReportServiceTest {
     @Autowired AppointmentService appts;
 
     @Test
+    void kayip_musteri_hic_islemi_olmayan_musteriyi_bulur() {
+        long cust = partyService.create(PartyType.MUSTERI, null, "Kayıp Müşteri " + System.nanoTime(),
+                null, null, null, null, null, null).getId();
+
+        var lost = reports.lostCustomers(0, null);
+        assertThat(lost).anyMatch(r -> r.partyId() == cust && r.lastSeen() == null);
+    }
+
+    @Test
+    void kayip_musteri_bugun_satis_yapilani_haric_tutar() {
+        long cust = partyService.create(PartyType.MUSTERI, null, "Aktif Müşteri " + System.nanoTime(),
+                null, null, null, null, null, null).getId();
+        invoices.create(new CreateInvoiceCommand(InvoiceType.SATIS, LocalDate.now(), cust, null,
+                null, null,
+                java.util.List.of(new NewLine(null, true, "Hizmet", BigDecimal.ONE, null,
+                        new BigDecimal("100"), BigDecimal.ZERO, BigDecimal.ZERO)),
+                java.util.List.of()));
+
+        var lost = reports.lostCustomers(1, null);
+        assertThat(lost).noneMatch(r -> r.partyId() == cust);
+    }
+
+    @Test
     void gunluk_dashboard_ciro_ve_sayilari_toplar() {
         long cust = partyService.create(PartyType.MUSTERI, null, "Rapor Müşteri " + System.nanoTime(),
                 null, null, null, null, null, null).getId();

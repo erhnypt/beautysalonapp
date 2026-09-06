@@ -189,6 +189,58 @@ public class ReportService {
         return branchId == null ? "" : " and " + column + " = " + branchId;
     }
 
+    public record LostCustomerRow(long partyId, String code, String title,
+                                  LocalDate lastSeen, Long daysSinceLastSeen) {}
+
+    private record LostCustomerRaw(long id, String code, String title,
+                                   java.sql.Timestamp lastAppt, Date lastInvoice) {}
+
+    /**
+     * Kayıp müşteri (plan §10.3): en az {@code idleDays} gündür ne randevuya gelmiş
+     * (durum GELDI) ne de satış/perakende faturası kesilmiş MÜŞTERİ tarafları. Hiç
+     * gelmemiş/almış müşteriler de dahildir ({@code lastSeen=null}). Tarih karşılaştırması
+     * H2/PostgreSQL farkı olmasın diye Java'da yapılır (bkz. sınıf javadoc'u).
+     */
+    public List<LostCustomerRow> lostCustomers(int idleDays, Long branchId) {
+        List<LostCustomerRaw> raws = jdbc.query("""
+                select p.id, p.code, p.title,
+                       (select max(a.start_at) from appointment a
+                        where a.party_id = p.id and a.status = 'GELDI') as last_appt,
+                       (select max(i.invoice_date) from invoice i
+                        where i.party_id = p.id and i.invoice_type in ('SATIS','PERAKENDE')
+                          and i.status != 'VOIDED') as last_invoice
+                from party p
+                where p.party_type = 'MUSTERI' and p.deleted = false
+                  and p.anonymized = false""" + bf("p.branch_id", branchId) + """
+                """,
+                (rs, n) -> new LostCustomerRaw(rs.getLong("id"), rs.getString("code"), rs.getString("title"),
+                        rs.getTimestamp("last_appt"), rs.getDate("last_invoice")));
+
+        LocalDate today = LocalDate.now();
+        List<LostCustomerRow> result = new java.util.ArrayList<>();
+        for (LostCustomerRaw r : raws) {
+            LocalDate lastAppt = r.lastAppt() == null ? null
+                    : r.lastAppt().toLocalDateTime().toLocalDate();
+            LocalDate lastInvoice = r.lastInvoice() == null ? null : r.lastInvoice().toLocalDate();
+            LocalDate lastSeen = maxDate(lastAppt, lastInvoice);
+            long days = lastSeen == null ? Long.MAX_VALUE
+                    : java.time.temporal.ChronoUnit.DAYS.between(lastSeen, today);
+            if (days >= idleDays) {
+                result.add(new LostCustomerRow(r.id(), r.code(), r.title(), lastSeen,
+                        lastSeen == null ? null : days));
+            }
+        }
+        result.sort(java.util.Comparator.comparing(LostCustomerRow::lastSeen,
+                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
+        return result;
+    }
+
+    private static LocalDate maxDate(LocalDate a, LocalDate b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        return a.isAfter(b) ? a : b;
+    }
+
     /** Gün sonu özeti (yöneticiye e-posta metni için, §14.2). */
     public String endOfDaySummary() {
         DailyDashboard d = today();

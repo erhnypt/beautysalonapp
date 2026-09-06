@@ -236,6 +236,37 @@ class FinanceServiceTest {
     }
 
     @Test
+    void butce_gerceklesen_hareketsiz_kartlari_da_sifir_gerceklesenle_gosterir() {
+        long kasa = finance.defaultCashAccountId();
+        var giderKart = finance.createCard(null, "BTC-" + System.nanoTime(), "Test Gider Kartı",
+                CardDirection.EXPENSE, false);
+        finance.updateCardBudget(giderKart.getId(), new BigDecimal("1000"));
+
+        LocalDate today = LocalDate.now();
+        var rowsBeforeSpend = finance.budgetVsActual(today.minusDays(1), today.plusDays(1));
+        var beforeRow = rowsBeforeSpend.stream().filter(r -> r.cardId() == giderKart.getId()).findFirst().orElseThrow();
+        assertThat(beforeRow.actual()).isEqualByComparingTo("0");
+        assertThat(beforeRow.variance()).isEqualByComparingTo("-1000"); // hiç harcanmadı
+
+        finance.createManual(CashTxnType.PAYMENT, today, kasa, null, null, giderKart.getId(),
+                new BigDecimal("300"), "kısmi harcama");
+
+        var rowsAfterSpend = finance.budgetVsActual(today.minusDays(1), today.plusDays(1));
+        var afterRow = rowsAfterSpend.stream().filter(r -> r.cardId() == giderKart.getId()).findFirst().orElseThrow();
+        assertThat(afterRow.actual()).isEqualByComparingTo("-300"); // gider raporda negatif işaretlenir
+        assertThat(afterRow.variance()).isEqualByComparingTo("-1300");
+        assertThat(afterRow.usagePercent()).isEqualByComparingTo("-30.0000");
+    }
+
+    @Test
+    void butcesi_olmayan_kart_butce_raporunda_gorunmez() {
+        var kartBudgesiz = finance.createCard(null, "NOBTC-" + System.nanoTime(), "Bütçesiz Kart",
+                CardDirection.EXPENSE, false);
+        var rows = finance.budgetVsActual(LocalDate.now().minusDays(1), LocalDate.now().plusDays(1));
+        assertThat(rows).noneMatch(r -> r.cardId() == kartBudgesiz.getId());
+    }
+
+    @Test
     void ust_karta_hareket_yazilamaz() {
         long kasa = finance.defaultCashAccountId();
         long parentCard = finance.listCards().stream().filter(c -> c.getCode().equals("600"))

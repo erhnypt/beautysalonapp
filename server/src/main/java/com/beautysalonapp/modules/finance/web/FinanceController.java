@@ -74,6 +74,8 @@ public class FinanceController {
     public record CreateCardRequest(Long parentId, @NotBlank String code, @NotBlank String name,
                                     @NotNull CardDirection direction, boolean serviceCard) {}
 
+    public record UpdateBudgetRequest(BigDecimal budgetAmount) {}
+
     @GetMapping("/cards")
     public List<CardView> cards() {
         return finance.listCards().stream().map(CardView::of).toList();
@@ -83,6 +85,12 @@ public class FinanceController {
     @PreAuthorize("hasAuthority('FINANCE_EDIT')")
     public CardView createCard(@Valid @RequestBody CreateCardRequest r) {
         return CardView.of(finance.createCard(r.parentId(), r.code(), r.name(), r.direction(), r.serviceCard()));
+    }
+
+    @PostMapping("/cards/{id}/budget")
+    @PreAuthorize("hasAuthority('FINANCE_EDIT')")
+    public CardView updateBudget(@PathVariable long id, @RequestBody UpdateBudgetRequest r) {
+        return CardView.of(finance.updateCardBudget(id, r.budgetAmount()));
     }
 
     // --- hareketler ---
@@ -176,6 +184,14 @@ public class FinanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return finance.incomeExpenseReport(from, to);
+    }
+
+    @GetMapping("/reports/budget")
+    @PreAuthorize("hasAuthority('FINANCE_REPORT')")
+    public List<FinanceService.BudgetRow> budget(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return finance.budgetVsActual(from, to);
     }
 
     private AccountView toView(FinAccount a) {

@@ -161,6 +161,33 @@ class StaffServiceTest {
     }
 
     @Test
+    void maas_avans_mutabakati_kapali_donem_ve_avanslari_dogru_toplar() {
+        Staff s = newStaff(new BigDecimal("10"));
+        commissionPort.accrue(new CommissionPort.AccrueCommand(s.getPartyId(), CommissionScope.SERVICE,
+                new BigDecimal("400"), "APPOINTMENT", "APPT-RECON-1", LocalDate.now()));
+        staff.payCommissions(s.getId(), YM, null);
+        staff.giveAdvance(s.getId(), new BigDecimal("200"), null);
+        staff.closePeriod(s.getId(), YM, new BigDecimal("15000"), new BigDecimal("2000"));
+
+        var rows = staff.salaryReconciliation(YM);
+        var row = rows.stream().filter(r -> r.staffId() == s.getId()).findFirst().orElseThrow();
+        assertThat(row.grossSalary()).isEqualByComparingTo("15000");
+        assertThat(row.netSalary()).isEqualByComparingTo("13000");
+        assertThat(row.advancesInPeriod()).isEqualByComparingTo("200");
+        assertThat(row.commissionsAccrued()).isEqualByComparingTo("40.00");
+        assertThat(row.commissionsPaid()).isEqualByComparingTo("40.00");
+        assertThat(row.netPayable()).isEqualByComparingTo("12800"); // 13000 - 200 avans
+        assertThat(row.periodLocked()).isTrue();
+    }
+
+    @Test
+    void maas_avans_mutabakati_hicbir_hareketi_olmayan_personeli_listelemez() {
+        Staff s = newStaff(null);
+        var rows = staff.salaryReconciliation(YM);
+        assertThat(rows).noneMatch(r -> r.staffId() == s.getId());
+    }
+
+    @Test
     void kural_ve_varsayilan_oran_yoksa_prim_yok() {
         long partyId = partyService.create(PartyType.PERSONEL, null, "Stajyer " + System.nanoTime(),
                 null, null, null, null, null, null).getId();

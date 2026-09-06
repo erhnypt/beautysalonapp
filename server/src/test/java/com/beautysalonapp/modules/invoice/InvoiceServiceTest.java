@@ -119,7 +119,7 @@ class InvoiceServiceTest {
     void risk_limiti_WARN_modunda_satisi_engellemez() {
         long cust = customer();
         partyService.update(cust, null, null, null, null, null, null, null, null, null, null,
-                new BigDecimal("100"));
+                new BigDecimal("100"), null, null);
         Invoice inv = sale(cust); // 500 > 100 limit, ama varsayılan mod WARN
         assertThat(inv.getGrandTotal()).isEqualByComparingTo("500.00");
     }
@@ -130,7 +130,7 @@ class InvoiceServiceTest {
         try {
             long cust = customer();
             partyService.update(cust, null, null, null, null, null, null, null, null, null, null,
-                    new BigDecimal("100"));
+                    new BigDecimal("100"), null, null);
             assertThatThrownBy(() -> sale(cust)).isInstanceOf(BusinessRuleException.class);
         } finally {
             settings.put("party.riskLimit.mode", "WARN");
@@ -143,7 +143,7 @@ class InvoiceServiceTest {
         try {
             long cust = customer();
             partyService.update(cust, null, null, null, null, null, null, null, null, null, null,
-                    new BigDecimal("1000"));
+                    new BigDecimal("1000"), null, null);
             Invoice inv = sale(cust); // 500 <= 1000 limit
             assertThat(inv.getGrandTotal()).isEqualByComparingTo("500.00");
         } finally {

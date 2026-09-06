@@ -146,6 +146,15 @@ public class StockService implements StockPort {
         return item;
     }
 
+    /** Kritik stok raporunun eşiği (plan §10.1) — daha önce hiçbir uç noktadan set edilemiyordu. */
+    public Item updateReorderLevel(long itemId, BigDecimal reorderLevel) {
+        Item item = getItem(itemId);
+        item.setReorderLevel(reorderLevel != null && reorderLevel.signum() < 0 ? null : reorderLevel);
+        audit.record("ITEM_REORDER_LEVEL", "Item", itemId,
+                "Kritik stok eşiği güncellendi: " + item.getReorderLevel());
+        return item;
+    }
+
     public ItemUnit addUnit(long itemId, String unitCode, BigDecimal factor, BigDecimal salePrice) {
         Item item = getItem(itemId);
         Unit unit = units.findByBranchIdAndCode(BRANCH, unitCode.toUpperCase())

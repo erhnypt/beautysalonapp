@@ -55,7 +55,8 @@ public final class PartyDtos {
     public record UpdatePartyRequest(
             String title, String firstName, String lastName,
             String phone, String email, String taxId, String tcNo,
-            Boolean smsConsent, Boolean emailConsent, IysStatus iysStatus, BigDecimal riskLimit) {
+            Boolean smsConsent, Boolean emailConsent, IysStatus iysStatus, BigDecimal riskLimit,
+            LocalDate birthDate, LocalDate weddingAnniversary) {
     }
 
     public record AnonymizeRequest(@NotBlank String reason) {

@@ -1,7 +1,9 @@
 package com.beautysalonapp.modules.party.web;
 
 import com.beautysalonapp.modules.party.application.PartyLedger;
+import com.beautysalonapp.modules.party.application.PartyReportService;
 import com.beautysalonapp.modules.party.application.PartyService;
+import com.beautysalonapp.modules.party.domain.AccountKind;
 import com.beautysalonapp.modules.party.domain.PartyAddress;
 import com.beautysalonapp.modules.party.domain.PartyType;
 import com.beautysalonapp.modules.party.web.PartyDtos.AccountView;
@@ -38,10 +40,12 @@ public class PartyController {
 
     private final PartyService partyService;
     private final PartyLedger ledger;
+    private final PartyReportService reports;
 
-    public PartyController(PartyService partyService, PartyLedger ledger) {
+    public PartyController(PartyService partyService, PartyLedger ledger, PartyReportService reports) {
         this.partyService = partyService;
         this.ledger = ledger;
+        this.reports = reports;
     }
 
     @GetMapping
@@ -69,7 +73,8 @@ public class PartyController {
     public PartyDetail update(@PathVariable long id, @Valid @RequestBody UpdatePartyRequest r) {
         return PartyDetail.of(partyService.update(id, r.title(), r.firstName(), r.lastName(),
                 r.phone(), r.email(), r.taxId(), r.tcNo(),
-                r.smsConsent(), r.emailConsent(), r.iysStatus(), r.riskLimit()));
+                r.smsConsent(), r.emailConsent(), r.iysStatus(), r.riskLimit(),
+                r.birthDate(), r.weddingAnniversary()));
     }
 
     @PostMapping("/{id}/anonymize")
@@ -123,5 +128,23 @@ public class PartyController {
                 r.accountId(), r.date(), "ADJUSTMENT",
                 "MAN-" + System.currentTimeMillis(), null, r.description(),
                 r.debit(), r.credit(), r.currency() == null ? "TRY" : r.currency()));
+    }
+
+    // --- raporlar (plan §10.3) ---
+
+    @GetMapping("/reports/aging")
+    @PreAuthorize("hasAuthority('PARTY_REPORT')")
+    public List<PartyReportService.AgingRow> aging(
+            @RequestParam(defaultValue = "NORMAL") AccountKind kind,
+            @RequestParam(required = false) Long branchId) {
+        return reports.aging(kind, branchId);
+    }
+
+    @GetMapping("/reports/birthdays")
+    @PreAuthorize("hasAuthority('PARTY_REPORT')")
+    public List<PartyReportService.BirthdayRow> birthdays(
+            @RequestParam(defaultValue = "30") int withinDays,
+            @RequestParam(required = false) Long branchId) {
+        return reports.birthdays(withinDays, branchId);
     }
 }

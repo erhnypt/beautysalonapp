@@ -88,7 +88,8 @@ public class PartyService implements PartyDirectory {
                         String phone, String email, String taxId, String tcNo,
                         Boolean smsConsent, Boolean emailConsent,
                         com.beautysalonapp.modules.party.domain.IysStatus iysStatus,
-                        java.math.BigDecimal riskLimit) {
+                        java.math.BigDecimal riskLimit,
+                        java.time.LocalDate birthDate, java.time.LocalDate weddingAnniversary) {
         Party p = get(id);
         if (p.isAnonymized()) {
             throw new BusinessRuleException("anonymized", "Anonimleştirilmiş cari düzenlenemez");
@@ -106,6 +107,8 @@ public class PartyService implements PartyDirectory {
         if (riskLimit != null) {
             p.setRiskLimit(riskLimit.signum() <= 0 ? null : riskLimit);
         }
+        p.setBirthDate(birthDate);
+        p.setWeddingAnniversary(weddingAnniversary);
         audit.record("PARTY_UPDATE", "Party", id, "Cari güncellendi: " + p.getCode());
         return p;
     }

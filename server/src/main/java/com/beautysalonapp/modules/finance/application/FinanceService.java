@@ -104,6 +104,16 @@ public class FinanceService implements FinancePort {
         return cards.save(c);
     }
 
+    /** Kart bütçesi (plan §10.4 "bütçe/gerçekleşen") — daha önce hiçbir uç noktadan set edilemiyordu. */
+    public IncomeExpenseCard updateCardBudget(long cardId, BigDecimal budgetAmount) {
+        IncomeExpenseCard c = cards.findById(cardId)
+                .orElseThrow(() -> new NotFoundException("Gelir/gider kartı", cardId));
+        c.setBudgetAmount(budgetAmount != null && budgetAmount.signum() < 0 ? null : budgetAmount);
+        audit.record("IE_CARD_BUDGET", "IncomeExpenseCard", c.getCode(),
+                "Bütçe güncellendi: " + c.getBudgetAmount());
+        return c;
+    }
+
     // --- hareketler ---------------------------------------------------
 
     /** Elle tahsilat/tediye/virman. */
@@ -432,6 +442,35 @@ public class FinanceService implements FinancePort {
 
     public record IncomeExpenseRow(long cardId, String code, String name, String direction,
                                    BigDecimal amount, BigDecimal budget) {}
+
+    public record BudgetRow(long cardId, String code, String name, String direction,
+                            BigDecimal budget, BigDecimal actual, BigDecimal variance, BigDecimal usagePercent) {}
+
+    /**
+     * Bütçe/gerçekleşen (plan §10.4): bütçesi tanımlı **her** kart — dönemde hiç hareketi
+     * olmasa bile ({@code actual=0}) listelenir, aksi halde tam harcanmamış bütçeler
+     * raporda hiç görünmez. Fark = gerçekleşen − bütçe (gider kartında pozitif fark aşımı,
+     * gelir kartında negatif fark hedefin altında kalmayı gösterir).
+     */
+    @Transactional(readOnly = true)
+    public List<BudgetRow> budgetVsActual(LocalDate from, LocalDate to) {
+        var totals = new java.util.HashMap<Long, BigDecimal>();
+        for (CashTransaction t : txns.withCardBetween(from, to)) {
+            totals.merge(t.getIncomeExpenseCardId(), signForReport(t), BigDecimal::add);
+        }
+        return cards.findAllByDeletedFalseOrderByCode().stream()
+                .filter(c -> c.getBudgetAmount() != null)
+                .map(c -> {
+                    BigDecimal actual = totals.getOrDefault(c.getId(), BigDecimal.ZERO);
+                    BigDecimal budget = c.getBudgetAmount();
+                    BigDecimal variance = actual.subtract(budget);
+                    BigDecimal usagePercent = budget.signum() == 0 ? null
+                            : actual.divide(budget, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+                    return new BudgetRow(c.getId(), c.getCode(), c.getName(), c.getDirection().name(),
+                            budget, actual, variance, usagePercent);
+                })
+                .toList();
+    }
 
     // --- iç yardımcılar ------------------------------------------
 

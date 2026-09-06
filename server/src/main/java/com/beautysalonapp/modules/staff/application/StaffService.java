@@ -312,6 +312,45 @@ public class StaffService implements CommissionPort {
         return period;
     }
 
+    public record SalaryReconciliationRow(long staffId, String staffTitle, String periodYm,
+                                          BigDecimal grossSalary, BigDecimal deductions, BigDecimal netSalary,
+                                          BigDecimal advancesInPeriod, BigDecimal commissionsAccrued,
+                                          BigDecimal commissionsPaid, BigDecimal netPayable, boolean periodLocked) {}
+
+    /**
+     * Maaş/avans mutabakatı (plan §10.2): dönem içindeki tüm personel için maaş
+     * (kapatılmışsa), o dönemde verilen avans toplamı ve prim tahakkuk/ödeme toplamlarını
+     * bir arada gösterir. {@code netPayable} = net maaş − dönem avansları (avans, maaştan
+     * mahsup edilecek bir ön ödemedir).
+     */
+    @Transactional(readOnly = true)
+    public List<SalaryReconciliationRow> salaryReconciliation(String periodYm) {
+        YearMonth ym = YearMonth.parse(periodYm, YM);
+        LocalDate periodStart = ym.atDay(1);
+        LocalDate periodEnd = ym.atEndOfMonth();
+
+        return staff.findAllByDeletedFalseOrderByTitle().stream()
+                .map(s -> {
+                    var period = salaryPeriods.findByStaffIdAndPeriodYm(s.getId(), periodYm).orElse(null);
+                    BigDecimal advancesTotal = advances.findAllByStaffIdAndDateBetween(s.getId(), periodStart, periodEnd)
+                            .stream().map(StaffAdvance::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    List<StaffCommission> lines = commissions.findAllByStaffIdAndPeriodYmOrderById(s.getId(), periodYm);
+                    BigDecimal accrued = lines.stream().map(StaffCommission::getAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal paid = lines.stream().filter(c -> c.getStatus() == CommissionStatus.ODENDI)
+                            .map(StaffCommission::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal net = period == null ? null : period.getNet();
+                    BigDecimal netPayable = net == null ? null : net.subtract(advancesTotal);
+                    return new SalaryReconciliationRow(s.getId(), s.getTitle(), periodYm,
+                            period == null ? null : period.getGross(),
+                            period == null ? null : period.getDeductions(),
+                            net, advancesTotal, accrued, paid, netPayable,
+                            period != null && period.isLocked());
+                })
+                .filter(r -> r.periodLocked() || r.advancesInPeriod().signum() != 0 || r.commissionsAccrued().signum() != 0)
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<StaffCommission> commissions(long staffId, String periodYm) {
         return commissions.findAllByStaffIdAndPeriodYmOrderById(staffId, periodYm);

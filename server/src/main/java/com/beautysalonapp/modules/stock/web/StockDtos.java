@@ -38,7 +38,9 @@ public final class StockDtos {
                                          @NotNull WarehouseType type, boolean makeDefault) {}
 
     public record ItemRow(long id, String code, String name, ItemType type, String brand,
-                          BigDecimal vatRate, boolean active, BigDecimal totalOnHand) {}
+                          BigDecimal vatRate, boolean active, BigDecimal totalOnHand, BigDecimal reorderLevel) {}
+
+    public record UpdateReorderLevelRequest(BigDecimal reorderLevel) {}
 
     public record ItemUnitView(long id, long unitId, String unitCode, BigDecimal factor,
                                BigDecimal salePrice, boolean isBase) {
@@ -103,6 +105,6 @@ public final class StockDtos {
 
     public static ItemRow toRow(Item i, BigDecimal totalOnHand) {
         return new ItemRow(i.getId(), i.getCode(), i.getName(), i.getType(), i.getBrand(),
-                i.getVatRate(), i.isActive(), totalOnHand);
+                i.getVatRate(), i.isActive(), totalOnHand, i.getReorderLevel());
     }
 }

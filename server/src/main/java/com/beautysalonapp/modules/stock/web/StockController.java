@@ -1,6 +1,7 @@
 package com.beautysalonapp.modules.stock.web;
 
 import com.beautysalonapp.modules.stock.application.StockPort;
+import com.beautysalonapp.modules.stock.application.StockReportService;
 import com.beautysalonapp.modules.stock.application.StockService;
 import com.beautysalonapp.modules.stock.domain.Item;
 import com.beautysalonapp.modules.stock.domain.ItemType;
@@ -21,6 +22,7 @@ import com.beautysalonapp.modules.stock.web.StockDtos.LevelView;
 import com.beautysalonapp.modules.stock.web.StockDtos.MovementRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.TransferRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.UnitView;
+import com.beautysalonapp.modules.stock.web.StockDtos.UpdateReorderLevelRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.WarehouseView;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -35,6 +37,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -47,11 +50,14 @@ public class StockController {
     private final StockService stock;
     private final StockPort stockPort;
     private final UnitRepository unitRepo;
+    private final StockReportService reports;
 
-    public StockController(StockService stock, StockPort stockPort, UnitRepository unitRepo) {
+    public StockController(StockService stock, StockPort stockPort, UnitRepository unitRepo,
+                           StockReportService reports) {
         this.stock = stock;
         this.stockPort = stockPort;
         this.unitRepo = unitRepo;
+        this.reports = reports;
     }
 
     // --- birim / depo ---
@@ -121,6 +127,13 @@ public class StockController {
         return item(id);
     }
 
+    @PostMapping("/items/{id}/reorder-level")
+    @PreAuthorize("hasAuthority('STOCK_EDIT')")
+    public ItemDetail updateReorderLevel(@PathVariable long id, @RequestBody UpdateReorderLevelRequest r) {
+        stock.updateReorderLevel(id, r.reorderLevel());
+        return item(id);
+    }
+
     // --- barkod çözümleme ---
     @GetMapping("/barcode/{barcode}")
     public BarcodeResolutionView resolve(@PathVariable String barcode) {
@@ -147,6 +160,64 @@ public class StockController {
     public void transfer(@Valid @RequestBody TransferRequest r) {
         stock.transfer(r.date(), r.itemId(), r.fromWarehouseId(), r.toWarehouseId(),
                 r.unitId(), r.quantity(), r.note());
+    }
+
+    // --- raporlar (plan §10.1) ---
+
+    @GetMapping("/reports/stock-status")
+    @PreAuthorize("hasAuthority('STOCK_REPORT')")
+    public List<StockReportService.StockStatusRow> stockStatus(
+            @RequestParam(required = false) Long warehouseId,
+            @RequestParam(required = false) Long branchId) {
+        return reports.stockStatus(warehouseId, branchId);
+    }
+
+    @GetMapping("/reports/movements")
+    @PreAuthorize("hasAuthority('STOCK_REPORT')")
+    public List<StockReportService.MovementRow> movementReport(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(required = false) Long itemId,
+            @RequestParam(required = false) Long warehouseId,
+            @RequestParam(required = false) Long branchId) {
+        return reports.movements(from, to, itemId, warehouseId, branchId);
+    }
+
+    @GetMapping("/reports/critical-stock")
+    @PreAuthorize("hasAuthority('STOCK_REPORT')")
+    public List<StockReportService.CriticalStockRow> criticalStock(
+            @RequestParam(required = false) Long branchId) {
+        return reports.criticalStock(branchId);
+    }
+
+    @GetMapping("/reports/turnover")
+    @PreAuthorize("hasAuthority('STOCK_REPORT')")
+    public List<StockReportService.TurnoverRow> turnover(
+            @RequestParam LocalDate from, @RequestParam LocalDate to,
+            @RequestParam(required = false) Long branchId) {
+        return reports.turnover(from, to, branchId);
+    }
+
+    @GetMapping("/reports/dead-stock")
+    @PreAuthorize("hasAuthority('STOCK_REPORT')")
+    public List<StockReportService.DeadStockRow> deadStock(
+            @RequestParam(defaultValue = "90") int idleDays,
+            @RequestParam(required = false) Long branchId) {
+        return reports.deadStock(idleDays, branchId);
+    }
+
+    @GetMapping("/reports/inventory-value")
+    @PreAuthorize("hasAuthority('STOCK_REPORT')")
+    public List<StockReportService.InventoryValueRow> inventoryValue(
+            @RequestParam(required = false) Long branchId) {
+        return reports.inventoryValue(branchId);
+    }
+
+    @GetMapping("/reports/warehouse-comparison")
+    @PreAuthorize("hasAuthority('STOCK_REPORT')")
+    public List<StockReportService.WarehouseComparisonRow> warehouseComparison(
+            @RequestParam(required = false) Long branchId) {
+        return reports.warehouseComparison(branchId);
     }
 
     private BigDecimal totalOnHand(long itemId) {
