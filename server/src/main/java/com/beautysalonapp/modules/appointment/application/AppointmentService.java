@@ -10,11 +10,14 @@ import com.beautysalonapp.modules.appointment.domain.ServiceDefinition;
 import com.beautysalonapp.modules.appointment.domain.ServiceRecipe;
 import com.beautysalonapp.modules.appointment.domain.StaffShift;
 import com.beautysalonapp.modules.appointment.domain.TimeSlot;
+import com.beautysalonapp.modules.appointment.domain.Waitlist;
+import com.beautysalonapp.modules.appointment.domain.WaitlistStatus;
 import com.beautysalonapp.modules.appointment.infrastructure.AppointmentRepository;
 import com.beautysalonapp.modules.appointment.infrastructure.ResourceRepository;
 import com.beautysalonapp.modules.appointment.infrastructure.ServiceDefinitionRepository;
 import com.beautysalonapp.modules.appointment.infrastructure.ServiceRecipeRepository;
 import com.beautysalonapp.modules.appointment.infrastructure.StaffShiftRepository;
+import com.beautysalonapp.modules.appointment.infrastructure.WaitlistRepository;
 import com.beautysalonapp.modules.contract.application.SessionConsumptionPort;
 import com.beautysalonapp.modules.finance.application.FinancePort;
 import com.beautysalonapp.modules.party.application.PartyDirectory;
@@ -49,6 +52,7 @@ public class AppointmentService {
     private final ResourceRepository resources;
     private final StaffShiftRepository shifts;
     private final AppointmentRepository appointments;
+    private final WaitlistRepository waitlist;
     private final PartyDirectory partyDirectory;
     private final PartyLedger partyLedger;
     private final StockPort stock;
@@ -61,7 +65,8 @@ public class AppointmentService {
 
     public AppointmentService(ServiceDefinitionRepository services, ServiceRecipeRepository recipes,
                               ResourceRepository resources, StaffShiftRepository shifts,
-                              AppointmentRepository appointments, PartyDirectory partyDirectory,
+                              AppointmentRepository appointments, WaitlistRepository waitlist,
+                              PartyDirectory partyDirectory,
                               PartyLedger partyLedger, StockPort stock, FinancePort finance,
                               SessionConsumptionPort sessions, CommissionPort commissions,
                               LoyaltyPort loyalty, SettingService settings, AuditService audit) {
@@ -70,6 +75,7 @@ public class AppointmentService {
         this.resources = resources;
         this.shifts = shifts;
         this.appointments = appointments;
+        this.waitlist = waitlist;
         this.partyDirectory = partyDirectory;
         this.partyLedger = partyLedger;
         this.stock = stock;
@@ -332,5 +338,56 @@ public class AppointmentService {
         if (ref.type() != PartyType.PERSONEL) {
             throw new BusinessRuleException("not_staff", "Seçilen kişi personel değil: " + ref.title());
         }
+    }
+
+    // --- bekleme listesi (plan §10.10) --------------------------------
+
+    public record AddToWaitlistCommand(long partyId, long serviceId, Long staffPartyId,
+                                       Instant preferredFrom, Instant preferredTo, String notes) {}
+
+    public Waitlist addToWaitlist(AddToWaitlistCommand c) {
+        partyDirectory.require(c.partyId());
+        getService(c.serviceId());
+        if (c.staffPartyId() != null) {
+            requireStaff(c.staffPartyId());
+        }
+        Waitlist w = new Waitlist(c.partyId(), c.serviceId(), c.staffPartyId(),
+                c.preferredFrom(), c.preferredTo(), c.notes());
+        waitlist.save(w);
+        audit.record("WAITLIST_ADD", "Waitlist", w.getId(), "Bekleme listesine eklendi: parti " + c.partyId());
+        return w;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Waitlist> waitlist(WaitlistStatus status) {
+        return waitlist.findAllByStatusOrderByCreatedAtAsc(status == null ? WaitlistStatus.BEKLEMEDE : status);
+    }
+
+    public void cancelWaitlistEntry(long id) {
+        Waitlist w = getWaitlistEntry(id);
+        if (w.getStatus() != WaitlistStatus.BEKLEMEDE) {
+            throw new BusinessRuleException("waitlist_not_pending", "Bu kayıt zaten kapanmış");
+        }
+        w.cancel();
+        audit.record("WAITLIST_CANCEL", "Waitlist", id, "Bekleme listesi kaydı iptal edildi");
+    }
+
+    /** Bekleme listesindeki bir talebi doğrudan randevuya dönüştürür (boş slot açıldığında). */
+    public Appointment convertWaitlistToAppointment(long waitlistId, long staffPartyId, Long resourceId,
+                                                     Instant startAt, String notes) {
+        Waitlist w = getWaitlistEntry(waitlistId);
+        if (w.getStatus() != WaitlistStatus.BEKLEMEDE) {
+            throw new BusinessRuleException("waitlist_not_pending", "Bu kayıt zaten kapanmış");
+        }
+        Appointment appt = book(new BookCommand(w.getPartyId(), staffPartyId, resourceId, w.getServiceId(),
+                startAt, "BEKLEME", notes != null ? notes : w.getNotes(), null));
+        w.markConverted(appt.getId());
+        audit.record("WAITLIST_CONVERT", "Waitlist", waitlistId,
+                "Randevuya dönüştürüldü: #" + appt.getId());
+        return appt;
+    }
+
+    private Waitlist getWaitlistEntry(long id) {
+        return waitlist.findById(id).orElseThrow(() -> new NotFoundException("Bekleme listesi kaydı", id));
     }
 }

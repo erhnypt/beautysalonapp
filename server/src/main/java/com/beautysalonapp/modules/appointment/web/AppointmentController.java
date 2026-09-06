@@ -1,6 +1,7 @@
 package com.beautysalonapp.modules.appointment.web;
 
 import com.beautysalonapp.modules.appointment.application.AppointmentService;
+import com.beautysalonapp.modules.appointment.application.AppointmentService.AddToWaitlistCommand;
 import com.beautysalonapp.modules.appointment.application.AppointmentService.BookCommand;
 import com.beautysalonapp.modules.appointment.application.AppointmentService.OccupancyRow;
 import com.beautysalonapp.modules.appointment.application.AppointmentService.StatusChange;
@@ -8,6 +9,8 @@ import com.beautysalonapp.modules.appointment.domain.Appointment;
 import com.beautysalonapp.modules.appointment.domain.AppointmentStatus;
 import com.beautysalonapp.modules.appointment.domain.Resource;
 import com.beautysalonapp.modules.appointment.domain.ServiceDefinition;
+import com.beautysalonapp.modules.appointment.domain.Waitlist;
+import com.beautysalonapp.modules.appointment.domain.WaitlistStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -152,5 +155,47 @@ public class AppointmentController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
         return service.occupancy(from, to);
+    }
+
+    // --- bekleme listesi (plan §10.10) ---
+
+    public record WaitlistView(long id, long partyId, long serviceId, Long staffPartyId,
+                               Instant preferredFrom, Instant preferredTo, String notes,
+                               WaitlistStatus status, Long appointmentId) {
+        static WaitlistView of(Waitlist w) {
+            return new WaitlistView(w.getId(), w.getPartyId(), w.getServiceId(), w.getStaffPartyId(),
+                    w.getPreferredFrom(), w.getPreferredTo(), w.getNotes(), w.getStatus(), w.getAppointmentId());
+        }
+    }
+
+    public record AddToWaitlistRequest(@NotNull Long partyId, @NotNull Long serviceId, Long staffPartyId,
+                                       Instant preferredFrom, Instant preferredTo, String notes) {}
+
+    public record ConvertWaitlistRequest(@NotNull Long staffPartyId, Long resourceId,
+                                         @NotNull Instant startAt, String notes) {}
+
+    @GetMapping("/waitlist")
+    public List<WaitlistView> waitlist(@RequestParam(required = false) WaitlistStatus status) {
+        return service.waitlist(status).stream().map(WaitlistView::of).toList();
+    }
+
+    @PostMapping("/waitlist")
+    @PreAuthorize("hasAuthority('APPOINTMENT_ADD')")
+    public WaitlistView addToWaitlist(@Valid @RequestBody AddToWaitlistRequest r) {
+        return WaitlistView.of(service.addToWaitlist(new AddToWaitlistCommand(r.partyId(), r.serviceId(),
+                r.staffPartyId(), r.preferredFrom(), r.preferredTo(), r.notes())));
+    }
+
+    @PostMapping("/waitlist/{id}/cancel")
+    @PreAuthorize("hasAuthority('APPOINTMENT_CANCEL')")
+    public void cancelWaitlist(@PathVariable long id) {
+        service.cancelWaitlistEntry(id);
+    }
+
+    @PostMapping("/waitlist/{id}/convert")
+    @PreAuthorize("hasAuthority('APPOINTMENT_ADD')")
+    public ApptView convertWaitlist(@PathVariable long id, @Valid @RequestBody ConvertWaitlistRequest r) {
+        return ApptView.of(service.convertWaitlistToAppointment(id, r.staffPartyId(), r.resourceId(),
+                r.startAt(), r.notes()));
     }
 }

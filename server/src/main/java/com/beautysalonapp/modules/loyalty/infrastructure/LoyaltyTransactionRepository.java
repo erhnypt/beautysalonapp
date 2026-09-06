@@ -22,4 +22,7 @@ public interface LoyaltyTransactionRepository extends JpaRepository<LoyaltyTrans
             """)
     List<LoyaltyTransaction> expiredEarnings(@Param("earnType") LoyaltyTxnType earnType,
                                             @Param("today") LocalDate today);
+
+    /** Tam olarak belirtilen günde süresi dolacak, henüz dolmamış kazanımlar (uyarı için). */
+    List<LoyaltyTransaction> findAllByTypeAndExpiredFalseAndExpiresAt(LoyaltyTxnType type, LocalDate expiresAt);
 }

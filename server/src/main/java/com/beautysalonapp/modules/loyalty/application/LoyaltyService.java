@@ -18,6 +18,7 @@ import com.beautysalonapp.modules.notification.application.NotificationService;
 import com.beautysalonapp.modules.notification.domain.NotificationChannel;
 import com.beautysalonapp.modules.notification.domain.NotificationType;
 import com.beautysalonapp.modules.party.application.PartyDirectory;
+import com.beautysalonapp.settings.application.SettingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -42,17 +43,20 @@ public class LoyaltyService implements LoyaltyPort {
     private final PartyDirectory partyDirectory;
     private final NotificationService notifications;
     private final SequenceService sequences;
+    private final SettingService settings;
     private final AuditService audit;
 
     public LoyaltyService(LoyaltyProgramRepository programs, LoyaltyCardRepository cards,
                           LoyaltyTransactionRepository txns, PartyDirectory partyDirectory,
-                          NotificationService notifications, SequenceService sequences, AuditService audit) {
+                          NotificationService notifications, SequenceService sequences,
+                          SettingService settings, AuditService audit) {
         this.programs = programs;
         this.cards = cards;
         this.txns = txns;
         this.partyDirectory = partyDirectory;
         this.notifications = notifications;
         this.sequences = sequences;
+        this.settings = settings;
         this.audit = audit;
     }
 
@@ -239,6 +243,38 @@ public class LoyaltyService implements LoyaltyPort {
         }
         if (!perCard.isEmpty()) {
             log.info("Puan zaman aşımı: {} kartta işlem yapıldı", perCard.size());
+        }
+    }
+
+    /**
+     * Puan zaman aşımı UYARISI (plan §10.11 "puan zaman aşımı + uyarı SMS'i") — süresi
+     * asıl dolmadan {@code loyalty.pointsExpiryWarningDays} (varsayılan 30) gün önce
+     * tek seferlik bildirim. Tam gün eşleşmesiyle tetiklendiği için doğal olarak
+     * idempotenttir: bir kazanım yalnızca bir günde "tam o kadar gün kaldı" durumuna girer.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 30 3 * * *")
+    public void warnExpiringPoints() {
+        int warningDays = Integer.parseInt(settings.getOrDefault("loyalty.pointsExpiryWarningDays", "30"));
+        LocalDate warnDate = LocalDate.now().plusDays(warningDays);
+        List<LoyaltyTransaction> expiringSoon = txns.findAllByTypeAndExpiredFalseAndExpiresAt(
+                LoyaltyTxnType.EARN, warnDate);
+
+        Map<Long, Integer> perCard = new java.util.HashMap<>();
+        for (LoyaltyTransaction earn : expiringSoon) {
+            perCard.merge(earn.getCardId(), earn.getPoints(), Integer::sum);
+        }
+        for (var e : perCard.entrySet()) {
+            LoyaltyCard card = cards.findById(e.getKey()).orElse(null);
+            if (card == null || card.getStatus() != CardStatus.ACTIVE) {
+                continue;
+            }
+            notifications.enqueue(NotificationType.KAMPANYA, NotificationChannel.SMS, card.getPartyId(),
+                    null, Map.of("kampanya", "puan zaman aşımı yaklaşıyor",
+                            "puan", String.valueOf(e.getValue()), "tarih", warnDate.toString()), null);
+        }
+        if (!perCard.isEmpty()) {
+            log.info("Puan zaman aşımı uyarısı: {} karta {} gün kala bildirim gönderildi",
+                    perCard.size(), warningDays);
         }
     }
 
