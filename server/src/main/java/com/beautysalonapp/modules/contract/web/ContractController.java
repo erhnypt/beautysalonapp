@@ -3,6 +3,7 @@ package com.beautysalonapp.modules.contract.web;
 import com.beautysalonapp.modules.contract.application.ContractService;
 import com.beautysalonapp.modules.contract.application.ContractService.CreateContractCommand;
 import com.beautysalonapp.modules.contract.application.ContractService.NewLine;
+import com.beautysalonapp.modules.contract.application.ContractService.RestructureCommand;
 import com.beautysalonapp.modules.contract.domain.ContractLine;
 import com.beautysalonapp.modules.contract.domain.ContractStatus;
 import com.beautysalonapp.modules.contract.domain.Installment;
@@ -60,6 +61,9 @@ public class ContractController {
     public record PayRequest(Long cashAccountId, BigDecimal amount, Long cardId) {}
 
     public record CancelRequest(String reason) {}
+
+    public record RestructureRequest(@Positive int newInstallmentCount, @NotNull LocalDate newFirstDueDate,
+                                     InstallmentPeriod newPeriod) {}
 
     public record ContractView(long id, String docNo, long partyId, LocalDate contractDate,
                                BigDecimal totalAmount, BigDecimal downPayment, int installmentCount,
@@ -136,6 +140,13 @@ public class ContractController {
     @PreAuthorize("hasAuthority('CONTRACT_VOID')")
     public ContractDetail cancel(@PathVariable long id, @RequestBody CancelRequest r) {
         service.cancel(id, r.reason());
+        return get(id);
+    }
+
+    @PostMapping("/{id}/restructure")
+    @PreAuthorize("hasAuthority('CONTRACT_EDIT')")
+    public ContractDetail restructure(@PathVariable long id, @Valid @RequestBody RestructureRequest r) {
+        service.restructure(id, new RestructureCommand(r.newInstallmentCount(), r.newFirstDueDate(), r.newPeriod()));
         return get(id);
     }
 

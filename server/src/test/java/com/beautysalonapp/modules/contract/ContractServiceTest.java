@@ -1,11 +1,14 @@
 package com.beautysalonapp.modules.contract;
 
+import com.beautysalonapp.core.error.BusinessRuleException;
 import com.beautysalonapp.modules.contract.application.ContractService;
 import com.beautysalonapp.modules.contract.application.ContractService.CreateContractCommand;
 import com.beautysalonapp.modules.contract.application.ContractService.NewLine;
+import com.beautysalonapp.modules.contract.application.ContractService.RestructureCommand;
 import com.beautysalonapp.modules.contract.domain.ContractStatus;
 import com.beautysalonapp.modules.contract.domain.Installment;
 import com.beautysalonapp.modules.contract.domain.InstallmentPeriod;
+import com.beautysalonapp.modules.contract.domain.InstallmentPlan;
 import com.beautysalonapp.modules.contract.domain.InstallmentStatus;
 import com.beautysalonapp.modules.contract.domain.SalesContract;
 import com.beautysalonapp.modules.finance.application.FinanceService;
@@ -22,6 +25,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 class ContractServiceTest {
@@ -142,5 +146,53 @@ class ContractServiceTest {
         Installment overdue = contracts.installments(c.getId()).get(0);
         assertThat(overdue.effectiveStatus(LocalDate.now())).isEqualTo(InstallmentStatus.GECIKMIS);
         assertThat(contracts.dueSchedule(LocalDate.now())).isNotEmpty();
+    }
+
+    @Test
+    void yeniden_yapilandirma_acik_taksitleri_iptal_edip_kalani_yeni_planla_degistirir() {
+        long partyId = newCustomer();
+        long acc = partyLedger.resolveAccount(partyId, AccountKind.NORMAL, "TRY");
+        SalesContract c = contracts.create(cmd(partyId, new BigDecimal("1200.00"), BigDecimal.ZERO, 4)); // 4x300
+        BigDecimal balanceBefore = partyLedger.balance(acc).getAmount();
+        contracts.payInstallment(contracts.installments(c.getId()).get(0).getId(), null, null, null); // ilk taksit ödendi
+
+        var created = contracts.restructure(c.getId(),
+                new RestructureCommand(2, LocalDate.now().plusMonths(1), InstallmentPeriod.AYLIK));
+
+        assertThat(created).hasSize(2);
+        assertThat(InstallmentPlan.sum(created.stream()
+                .map(i -> new InstallmentPlan.PlannedInstallment(i.getSeq(), i.getDueDate(), i.getAmount()))
+                .toList())).isEqualByComparingTo("900.00"); // 1200 - 300 ödenen
+
+        List<Installment> all = contracts.installments(c.getId());
+        assertThat(all).hasSize(6); // orijinal 4 + yeni 2
+        assertThat(all.stream().filter(i -> i.getStatus() == InstallmentStatus.IPTAL)).hasSize(3);
+        assertThat(all.stream().filter(i -> i.getStatus() == InstallmentStatus.ODENDI)).hasSize(1);
+        assertThat(created).extracting(Installment::getSeq).containsExactly(5, 6);
+
+        // Cari bakiye restructure ile değişmez (borç aynı kalır, sadece takvim değişir)
+        assertThat(partyLedger.balance(acc).getAmount()).isEqualByComparingTo(balanceBefore.subtract(new BigDecimal("300.00")));
+    }
+
+    @Test
+    void tamami_odenmis_sozlesme_yeniden_yapilandirilamaz() {
+        long partyId = newCustomer();
+        SalesContract c = contracts.create(cmd(partyId, new BigDecimal("600.00"), BigDecimal.ZERO, 3));
+        contracts.earlyPayoff(c.getId(), null);
+
+        assertThatThrownBy(() -> contracts.restructure(c.getId(),
+                new RestructureCommand(2, LocalDate.now().plusMonths(1), InstallmentPeriod.AYLIK)))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void iptal_edilmis_sozlesme_yeniden_yapilandirilamaz() {
+        long partyId = newCustomer();
+        SalesContract c = contracts.create(cmd(partyId, new BigDecimal("900.00"), BigDecimal.ZERO, 3));
+        contracts.cancel(c.getId(), "test");
+
+        assertThatThrownBy(() -> contracts.restructure(c.getId(),
+                new RestructureCommand(2, LocalDate.now().plusMonths(1), InstallmentPeriod.AYLIK)))
+                .isInstanceOf(BusinessRuleException.class);
     }
 }

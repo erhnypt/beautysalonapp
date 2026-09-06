@@ -207,6 +207,47 @@ public class ContractService {
                 "Sözleşme iptal edildi — kalan " + unpaidScheduled + " / gerekçe: " + reason);
     }
 
+    public record RestructureCommand(int newInstallmentCount, LocalDate newFirstDueDate, InstallmentPeriod newPeriod) {}
+
+    /**
+     * Yeniden yapılandırma (plan §10.12): açık (ödenmemiş/gecikmiş) taksitlerin kalan
+     * toplamı iptal edilip yeni bir taksit planıyla değiştirilir. Ödenmiş taksitlere ve
+     * cari bakiyeye dokunulmaz — toplam borç değişmez, sadece geri ödeme takvimi değişir
+     * (iptal aksine bir alacak/mahsuplaşma yazılmaz).
+     */
+    public List<Installment> restructure(long contractId, RestructureCommand cmd) {
+        SalesContract contract = get(contractId);
+        if (contract.getStatus() != ContractStatus.ACTIVE) {
+            throw new BusinessRuleException("not_active", "Yalnızca aktif sözleşmeler yeniden yapılandırılabilir");
+        }
+        List<Installment> all = installments.findAllByContractIdOrderBySeq(contractId);
+        List<Installment> open = all.stream()
+                .filter(i -> i.getStatus() != InstallmentStatus.ODENDI && i.getStatus() != InstallmentStatus.IPTAL)
+                .toList();
+        if (open.isEmpty()) {
+            throw new BusinessRuleException("nothing_to_restructure", "Yeniden yapılandırılacak açık taksit yok");
+        }
+        BigDecimal remaining = open.stream().map(Installment::remaining).reduce(BigDecimal.ZERO, BigDecimal::add);
+        int maxSeq = all.stream().mapToInt(Installment::getSeq).max().orElse(0);
+
+        open.forEach(i -> { i.setStatus(InstallmentStatus.IPTAL); installments.save(i); });
+
+        List<InstallmentPlan.PlannedInstallment> plan = InstallmentPlan.generate(
+                remaining, BigDecimal.ZERO, cmd.newInstallmentCount(), cmd.newFirstDueDate(),
+                cmd.newPeriod() == null ? contract.getPeriod() : cmd.newPeriod());
+
+        List<Installment> created = new ArrayList<>();
+        for (InstallmentPlan.PlannedInstallment p : plan) {
+            Installment ni = new Installment(contractId, maxSeq + p.seq(), p.dueDate(), p.amount());
+            installments.save(ni);
+            created.add(ni);
+        }
+        audit.record("CONTRACT_RESTRUCTURE", "SalesContract", contract.getDocNo(),
+                open.size() + " taksit iptal edildi, kalan " + remaining + " için "
+                        + created.size() + " yeni taksit oluşturuldu");
+        return created;
+    }
+
     /** Erken kapama: tüm bekleyen taksitlerin kalanını tek seferde tahsil eder. */
     public void earlyPayoff(long contractId, Long cashAccountId) {
         List<Installment> pending = new ArrayList<>();
