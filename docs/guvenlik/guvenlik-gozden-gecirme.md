@@ -43,7 +43,7 @@
 | C2 | Bean Validation | ✅ | `spring-boot-starter-validation`; DTO'lar `record` + `@Valid` |
 | C3 | Kütle atama (mass assignment) | ✅ | Giriş DTO'ları ayrı `record`'lar; entity doğrudan bağlanmıyor |
 | C4 | Dosya yükleme boyutu sınırı | ✅ | `spring.servlet.multipart.max-file-size: 100MB` |
-| C5 | Dosya yükleme tür/yol kontrolü | ⚠️ | Ekler `attachments/` altına yazılıyor; dosya adı sanitizasyonu `AttachmentService`'te doğrulanmalı (yol geçişi). İzleme maddesi. |
+| C5 | Dosya yükleme tür/yol kontrolü | ✅ | Faz 8: `AttachmentService.sanitizeFilename` + UUID tabanlı disk adı + kök dizin doğrulaması (`upload`/`download`'da normalize+startsWith kontrolü). `AttachmentServiceTest` yol geçişi (`../`, `..\`) senaryolarını doğruluyor. |
 | C6 | XXE / güvensiz deserializasyon | ✅ | Jackson varsayılan; polimorfik tip yok. XML endpoint yok. |
 
 ## 4. Web güvenlik başlıkları
@@ -127,7 +127,9 @@
 
 **Hâlâ açık (kod, izlenmeli):**
 - A6 not: `SameSite=Strict` + LAN erişimi senaryosunda cross-site POST gelmez; sorun değil.
-- C5: `AttachmentService` dosya adı / yol geçişi sanitizasyonu birim testiyle sabitlensin.
+
+**Faz 8'de kapatıldı:**
+- C5: `AttachmentService` dosya adı / yol geçişi sanitizasyonu eklendi ve birim testiyle sabitlendi.
 
 **Kod dışı (operasyon / tedarik):**
 6. Apple + Windows imzalama sertifikaları (I3) — **Faz 1'de sipariş edilmeliydi**

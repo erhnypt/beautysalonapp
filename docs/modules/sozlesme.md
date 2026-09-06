@@ -86,9 +86,13 @@ GET  /api/v1/contracts/schedule?until=               (CONTRACT_REPORT) — vade 
 Bu modülde yeni bir PII alanı yok — `sales_contract`/`installment`/`contract_line`
 yalnızca tutar, tarih ve durum bilgisi taşır; kimlik/iletişim bilgisi zaten `party`
 tablosunda şifreli tutuluyor ve buradan yalnızca `party_id` ile referans veriliyor.
-Taranmış imzalı sözleşme nüshası (plan §10.12) `attachment` tablosuna referansla
-saklanmalı — dosyanın kendisi DB'de değil, `attachments/` dizininde durur (bkz.
-`docs/04-guvenlik-kvkk.md` §1 madde 6).
+Taranmış imzalı sözleşme nüshası (plan §10.12): `com.beautysalonapp.attachment` modülü
+(`AttachmentService`, Faz 8) ile `POST /api/v1/attachments?ownerType=CONTRACT&ownerId=...`
+üzerinden yüklenir. Dosyanın kendisi DB'de değil `<dataDir>/attachments/CONTRACT/<id>/`
+altında durur; DB'de yalnızca sha256 + orijinal dosya adı referansı tutulur (bkz.
+`docs/04-guvenlik-kvkk.md` §1 madde 6). Yol geçişi (path traversal) önlemi: diskteki
+gerçek dosya adı her zaman sunucu tarafında üretilen bir UUID'dir, kullanıcı girdisi
+asla doğrudan dosya sistemi yoluna karışmaz.
 
 ## Test
 
