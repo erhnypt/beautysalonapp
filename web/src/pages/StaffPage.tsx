@@ -28,6 +28,14 @@ interface PartyRow {
 interface Page<T> {
   content: T[];
 }
+interface SalaryPeriodView {
+  id: number;
+  periodYm: string;
+  gross: number;
+  deductions: number;
+  net: number;
+  locked: boolean;
+}
 
 const tl = (n: number) =>
   new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(n);
@@ -173,6 +181,121 @@ function StaffDetail({ id }: { id: number }) {
           </button>
         </div>
       )}
+
+      <SalaryPeriodSection id={id} />
+    </div>
+  );
+}
+
+function SalaryPeriodSection({ id }: { id: number }) {
+  const qc = useQueryClient();
+  const { has } = useAuth();
+  const [showClose, setShowClose] = useState(false);
+  const [period, setPeriod] = useState(ym());
+  const [gross, setGross] = useState("");
+  const [deductions, setDeductions] = useState("0");
+  const [err, setErr] = useState<string | null>(null);
+
+  const periods = useQuery({
+    queryKey: ["staff-salary-periods", id],
+    queryFn: () => api<SalaryPeriodView[]>(`/api/v1/staff/${id}/salary-periods`),
+  });
+
+  const close = useMutation({
+    mutationFn: () =>
+      api<SalaryPeriodView>(`/api/v1/staff/${id}/salary-periods/close`, {
+        method: "POST",
+        body: { period, gross: Number(gross), deductions: Number(deductions) },
+      }),
+    onSuccess: () => {
+      setShowClose(false);
+      setGross("");
+      setDeductions("0");
+      qc.invalidateQueries({ queryKey: ["staff-salary-periods", id] });
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    close.mutate();
+  };
+
+  return (
+    <div className="mt-4 border-t border-slate-100 pt-3">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-700">Maaş Dönemleri</h3>
+        {has("STAFF_EDIT") && (
+          <button className="text-sm text-brand-700 hover:underline" onClick={() => setShowClose((v) => !v)}>
+            Dönem Kapat
+          </button>
+        )}
+      </div>
+
+      {showClose && (
+        <form onSubmit={submit} className="mb-3 grid gap-3 sm:grid-cols-4">
+          {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-4">{err}</div>}
+          <div>
+            <label className="label">Dönem (YYYY-MM)</label>
+            <input className="input" value={period} onChange={(e) => setPeriod(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Brüt</label>
+            <input className="input" value={gross} onChange={(e) => setGross(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Kesinti</label>
+            <input className="input" value={deductions} onChange={(e) => setDeductions(e.target.value)} />
+          </div>
+          <div className="flex items-end gap-2">
+            <button className="btn-primary" disabled={close.isPending || !period || !gross}>
+              {t.common.save}
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => setShowClose(false)}>
+              {t.common.cancel}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <table className="w-full text-sm">
+        <thead className="text-left text-slate-500">
+          <tr>
+            <th className="py-1 font-medium">Dönem</th>
+            <th className="py-1 text-right font-medium">Brüt</th>
+            <th className="py-1 text-right font-medium">Kesinti</th>
+            <th className="py-1 text-right font-medium">Net</th>
+            <th className="py-1 font-medium">Durum</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {(periods.data ?? []).map((p) => (
+            <tr key={p.id}>
+              <td className="py-1.5 font-mono text-xs">{p.periodYm}</td>
+              <td className="py-1.5 text-right tabular-nums">{tl(p.gross)}</td>
+              <td className="py-1.5 text-right tabular-nums">{tl(p.deductions)}</td>
+              <td className="py-1.5 text-right tabular-nums">{tl(p.net)}</td>
+              <td className="py-1.5">
+                <span
+                  className={`rounded px-1.5 py-0.5 text-xs ${
+                    p.locked ? "bg-slate-200 text-slate-600" : "bg-amber-100 text-amber-700"
+                  }`}
+                >
+                  {p.locked ? "Kapalı" : "Açık"}
+                </span>
+              </td>
+            </tr>
+          ))}
+          {(periods.data ?? []).length === 0 && (
+            <tr>
+              <td colSpan={5} className="py-4 text-center text-slate-400">
+                Kapatılmış dönem yok
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -8,7 +8,6 @@ import { UsersPage } from "./pages/UsersPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AuditPage } from "./pages/AuditPage";
 import { LicensePage } from "./pages/LicensePage";
-import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { PartiesPage } from "./pages/PartiesPage";
 import { StockPage } from "./pages/StockPage";
 import { FinancePage } from "./pages/FinancePage";
@@ -21,6 +20,8 @@ import { LoyaltyPage } from "./pages/LoyaltyPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { BankReconciliationPage } from "./pages/BankReconciliationPage";
 import { BranchesPage } from "./pages/BranchesPage";
+import { ReportsPage } from "./pages/ReportsPage";
+import { SupportPage } from "./pages/SupportPage";
 import { t } from "./lib/i18n";
 
 export default function App() {
@@ -72,7 +73,8 @@ export default function App() {
         <Route path="personel" element={<StaffPage />} />
         <Route path="sadakat" element={<LoyaltyPage />} />
         <Route path="bildirimler" element={<NotificationsPage />} />
-        <Route path="raporlar" element={<PlaceholderPage titleKey="reports" />} />
+        <Route path="raporlar" element={<ReportsPage />} />
+        <Route path="destek" element={<SupportPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

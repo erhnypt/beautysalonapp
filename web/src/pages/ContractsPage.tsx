@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
+import { AttachmentPanel } from "../components/AttachmentPanel";
 import { t } from "../lib/i18n";
 import { useAuth } from "../lib/auth";
 
@@ -121,7 +122,9 @@ export function ContractsPage() {
 }
 
 function ContractDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
+  const { has } = useAuth();
   const qc = useQueryClient();
+  const [showRestructure, setShowRestructure] = useState(false);
   const { data } = useQuery({
     queryKey: ["contract", id],
     queryFn: () => api<ContractDetail>(`/api/v1/contracts/${id}`),
@@ -138,14 +141,34 @@ function ContractDetailPanel({ id, onClose }: { id: number; onClose: () => void 
 
   if (!data) return null;
 
+  const hasOpenInstallments = data.installments.some((i) => i.status !== "ODENDI" && i.status !== "IPTAL");
+
   return (
     <div className="mt-4 card">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-semibold">{data.contract.docNo} — Taksit Planı</h2>
-        <button className="text-sm text-slate-500 hover:underline" onClick={onClose}>
-          Kapat
-        </button>
+        <div className="flex items-center gap-3">
+          {has("CONTRACT_EDIT") && data.contract.status === "ACTIVE" && hasOpenInstallments && (
+            <button className="text-sm text-brand-700 hover:underline" onClick={() => setShowRestructure((v) => !v)}>
+              Yeniden Yapılandır
+            </button>
+          )}
+          <button className="text-sm text-slate-500 hover:underline" onClick={onClose}>
+            Kapat
+          </button>
+        </div>
       </div>
+      {showRestructure && (
+        <RestructureForm
+          contractId={id}
+          onClose={() => setShowRestructure(false)}
+          onDone={() => {
+            setShowRestructure(false);
+            qc.invalidateQueries({ queryKey: ["contract", id] });
+            qc.invalidateQueries({ queryKey: ["contracts"] });
+          }}
+        />
+      )}
       <table className="w-full text-sm">
         <thead className="text-left text-slate-500">
           <tr>
@@ -189,7 +212,80 @@ function ContractDetailPanel({ id, onClose }: { id: number; onClose: () => void 
           )}
         </tbody>
       </table>
+      <AttachmentPanel ownerType="CONTRACT" ownerId={id} editPermission="CONTRACT_EDIT" />
     </div>
+  );
+}
+
+function RestructureForm({
+  contractId,
+  onClose,
+  onDone,
+}: {
+  contractId: number;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [newInstallmentCount, setNewInstallmentCount] = useState("3");
+  const [newFirstDueDate, setNewFirstDueDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [newPeriod, setNewPeriod] = useState<"AYLIK" | "HAFTALIK">("AYLIK");
+  const [err, setErr] = useState<string | null>(null);
+
+  const restructure = useMutation({
+    mutationFn: () =>
+      api(`/api/v1/contracts/${contractId}/restructure`, {
+        method: "POST",
+        body: {
+          newInstallmentCount: Number(newInstallmentCount),
+          newFirstDueDate,
+          newPeriod,
+        },
+      }),
+    onSuccess: onDone,
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    restructure.mutate();
+  };
+
+  return (
+    <form onSubmit={submit} className="mb-4 grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4">
+      <div className="text-sm font-medium text-slate-700 sm:col-span-4">
+        Yeniden yapılandırma: açık taksitlerin kalan toplamı iptal edilip aşağıdaki yeni planla değiştirilir.
+        Cari bakiye değişmez.
+      </div>
+      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-4">{err}</div>}
+      <div>
+        <label className="label">Yeni Taksit Sayısı</label>
+        <input className="input" value={newInstallmentCount} onChange={(e) => setNewInstallmentCount(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Yeni İlk Vade</label>
+        <input type="date" className="input" value={newFirstDueDate} onChange={(e) => setNewFirstDueDate(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Periyot</label>
+        <select className="input" value={newPeriod} onChange={(e) => setNewPeriod(e.target.value as "AYLIK" | "HAFTALIK")}>
+          <option value="AYLIK">Aylık</option>
+          <option value="HAFTALIK">Haftalık</option>
+        </select>
+      </div>
+      <div className="flex items-end gap-2">
+        <button className="btn-primary" disabled={restructure.isPending || !newInstallmentCount}>
+          {t.common.save}
+        </button>
+        <button type="button" className="btn-ghost" onClick={onClose}>
+          {t.common.cancel}
+        </button>
+      </div>
+    </form>
   );
 }
 

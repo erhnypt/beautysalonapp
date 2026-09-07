@@ -24,6 +24,7 @@ export const t = {
     license: "Lisans",
     backup: "Yedekleme",
     branches: "Şubeler",
+    support: "Destek",
   },
 
   auth: {

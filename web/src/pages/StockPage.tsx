@@ -14,6 +14,7 @@ interface ItemRow {
   vatRate: number;
   active: boolean;
   totalOnHand: number;
+  reorderLevel: number | null;
 }
 interface Page<T> {
   content: T[];
@@ -23,12 +24,22 @@ interface UnitView {
   code: string;
   name: string;
 }
+interface LevelView {
+  warehouseId: number;
+  qtyBase: number;
+  avgCost: number;
+}
+interface ItemDetail {
+  item: ItemRow;
+  levels: LevelView[];
+}
 
 export function StockPage() {
   const { has } = useAuth();
   const canAdd = has("STOCK_ADD");
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [openId, setOpenId] = useState<number | null>(null);
 
   const items = useQuery({
     queryKey: ["stock-items", q],
@@ -75,7 +86,11 @@ export function StockPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {items.data.content.map((i) => (
-                <tr key={i.id} className={i.active ? "" : "opacity-50"}>
+                <tr
+                  key={i.id}
+                  className={`cursor-pointer hover:bg-slate-50 ${i.active ? "" : "opacity-50"}`}
+                  onClick={() => setOpenId(openId === i.id ? null : i.id)}
+                >
                   <td className="px-4 py-2 font-mono text-xs">{i.code}</td>
                   <td className="px-4 py-2 font-medium">{i.name}</td>
                   <td className="px-4 py-2">
@@ -106,6 +121,97 @@ export function StockPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {openId && <ItemDetailPanel id={openId} onClose={() => setOpenId(null)} />}
+    </div>
+  );
+}
+
+function ItemDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
+  const { has } = useAuth();
+  const qc = useQueryClient();
+  const canEdit = has("STOCK_EDIT");
+  const [reorderLevel, setReorderLevel] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const { data } = useQuery({
+    queryKey: ["stock-item", id],
+    queryFn: () => api<ItemDetail>(`/api/v1/stock/items/${id}`),
+  });
+
+  const save = useMutation({
+    mutationFn: () =>
+      api(`/api/v1/stock/items/${id}/reorder-level`, {
+        method: "POST",
+        body: { reorderLevel: reorderLevel ? Number(reorderLevel) : null },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-item", id] });
+      qc.invalidateQueries({ queryKey: ["stock-items"] });
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  if (!data) return null;
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    save.mutate();
+  };
+
+  return (
+    <div className="mt-4 card">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-semibold">{data.item.name}</h2>
+        <button className="text-sm text-slate-500 hover:underline" onClick={onClose}>
+          Kapat
+        </button>
+      </div>
+
+      <table className="w-full text-sm">
+        <thead className="text-left text-slate-500">
+          <tr>
+            <th className="py-1 font-medium">Depo</th>
+            <th className="py-1 text-right font-medium">Miktar</th>
+            <th className="py-1 text-right font-medium">Ort. Maliyet</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {data.levels.map((l) => (
+            <tr key={l.warehouseId}>
+              <td className="py-1.5">#{l.warehouseId}</td>
+              <td className="py-1.5 text-right tabular-nums">{Number(l.qtyBase).toLocaleString("tr-TR")}</td>
+              <td className="py-1.5 text-right tabular-nums">{Number(l.avgCost).toLocaleString("tr-TR")}</td>
+            </tr>
+          ))}
+          {data.levels.length === 0 && (
+            <tr>
+              <td colSpan={3} className="py-4 text-center text-slate-400">
+                Depo hareketi yok
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {canEdit && (
+        <form onSubmit={submit} className="mt-4 flex items-end gap-2 border-t border-slate-100 pt-3">
+          {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+          <div>
+            <label className="label">Yeniden Sipariş Seviyesi</label>
+            <input
+              className="input w-40"
+              placeholder={data.item.reorderLevel != null ? String(data.item.reorderLevel) : "—"}
+              value={reorderLevel}
+              onChange={(e) => setReorderLevel(e.target.value)}
+            />
+          </div>
+          <button className="btn-primary" disabled={save.isPending}>
+            {t.common.save}
+          </button>
+        </form>
       )}
     </div>
   );

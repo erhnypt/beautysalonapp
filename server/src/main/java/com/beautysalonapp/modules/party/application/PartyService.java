@@ -95,9 +95,9 @@ public class PartyService implements PartyDirectory {
             throw new BusinessRuleException("anonymized", "Anonimleştirilmiş cari düzenlenemez");
         }
         if (title != null) p.setTitle(title.trim());
-        p.setFirstName(firstName);
-        p.setLastName(lastName);
-        applyContact(p, phone, email, taxId, tcNo);
+        if (firstName != null) p.setFirstName(firstName);
+        if (lastName != null) p.setLastName(lastName);
+        applyContactPartial(p, phone, email, taxId, tcNo);
         if (smsConsent != null) p.setSmsConsent(smsConsent);
         if (emailConsent != null) p.setEmailConsent(emailConsent);
         if (iysStatus != null) {
@@ -222,6 +222,19 @@ public class PartyService implements PartyDirectory {
         p.setEmail(emptyToNull(email));
         p.setTaxId(emptyToNull(taxId));
         p.setTcNo(emptyToNull(tcNo));
+    }
+
+    /** {@link #applyContact} güncellemede kullanılırsa gönderilmeyen alanları siler — burada
+     * null "değişiklik yok" anlamına gelir (bkz. güncelleme use-case'i, kısmi PUT desteği). */
+    private void applyContactPartial(Party p, String phone, String email, String taxId, String tcNo) {
+        if (phone != null) {
+            String normalized = emptyToNull(phone);
+            p.setPhone(normalized);
+            p.setPhoneBlindIndex(crypto.blindIndex(normalized));
+        }
+        if (email != null) p.setEmail(emptyToNull(email));
+        if (taxId != null) p.setTaxId(emptyToNull(taxId));
+        if (tcNo != null) p.setTcNo(emptyToNull(tcNo));
     }
 
     private static String emptyToNull(String s) {
