@@ -8,6 +8,7 @@ import com.beautysalonapp.backup.infrastructure.BackupLogRepository;
 import com.beautysalonapp.config.AppProperties;
 import com.beautysalonapp.core.error.BusinessRuleException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.flywaydb.core.Flyway;
@@ -344,6 +345,20 @@ public class BackupService {
         if (LocalDate.now().getDayOfWeek().getValue() == 1) {
             listBackups().stream().findFirst().ifPresent(f -> verify(f.name()));
         }
+    }
+
+    /**
+     * Uygulama kapanışında yedek (plan §11.1) — masaüstü uygulaması 23:00'te açık
+     * olmayabileceğinden, günlük/haftalık/aylık rotasyonun fiilen çalışması için
+     * kapanış anı ikinci bir tetikleyicidir. Yalnızca zorlu (kill -9) kapanışta çalışmaz.
+     */
+    @PreDestroy
+    public void backupOnShutdown() {
+        if (!props.getBackup().isScheduledEnabled()) {
+            return;
+        }
+        log.info("Uygulama kapanıyor — kapanış yedeği alınıyor");
+        createBackup("SHUTDOWN", "system");
     }
 
     // --- yardımcılar --------------------------------------------

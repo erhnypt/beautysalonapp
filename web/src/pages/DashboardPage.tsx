@@ -3,7 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { PageHeader } from "../components/PageHeader";
 import { useLicense } from "../lib/license";
+import { useAuth } from "../lib/auth";
 import { t } from "../lib/i18n";
+
+interface BackupStatus {
+  lastSuccessfulAt: string | null;
+  lastError: string | null;
+}
 
 interface BranchOption {
   id: number;
@@ -63,6 +69,13 @@ export function DashboardPage() {
     refetchInterval: 2 * 60 * 1000,
   });
   const { data: license } = useLicense();
+  const { has } = useAuth();
+  const canSeeBackup = has("BACKUP_RUN") || has("BACKUP_RESTORE") || has("SETTINGS_VIEW");
+  const { data: backupStatus } = useQuery({
+    queryKey: ["backup-status-dashboard"],
+    queryFn: () => api<BackupStatus>("/api/v1/backup/status"),
+    enabled: canSeeBackup,
+  });
 
   const showSwitcher = (branches.data?.length ?? 0) > 1;
 
@@ -151,6 +164,18 @@ export function DashboardPage() {
                 Lisans: {license?.devMode ? "geliştirme modu" : license?.status ?? "—"}
               </span>
             </li>
+            {canSeeBackup && backupStatus && (
+              <li className={`flex items-start gap-2 ${backupStatus.lastError ? "text-red-700" : "text-slate-500"}`}>
+                <span>{backupStatus.lastError ? "⚠" : backupStatus.lastSuccessfulAt ? "✓" : "⚠"}</span>
+                <span>
+                  {backupStatus.lastError
+                    ? `Son yedek başarısız: ${backupStatus.lastError}`
+                    : backupStatus.lastSuccessfulAt
+                      ? `Son yedek: ${new Date(backupStatus.lastSuccessfulAt).toLocaleString("tr-TR")}`
+                      : "Henüz yedek alınmadı"}
+                </span>
+              </li>
+            )}
           </ul>
         </div>
       </div>
