@@ -31,9 +31,37 @@ interface LevelView {
   qtyBase: number;
   avgCost: number;
 }
+interface ItemUnitView {
+  id: number;
+  unitId: number;
+  unitCode: string;
+  factor: number;
+  isBase: boolean;
+}
 interface ItemDetail {
   item: ItemRow;
+  units: ItemUnitView[];
   levels: LevelView[];
+}
+interface WarehouseView {
+  id: number;
+  code: string;
+  name: string;
+  type: "WAREHOUSE" | "SHOWCASE" | "CONSUMPTION";
+  isDefault: boolean;
+}
+interface MovementRow {
+  id: number;
+  date: string;
+  itemCode: string;
+  itemName: string;
+  warehouseCode: string;
+  direction: "IN" | "OUT";
+  baseQty: number;
+  unitCost: number | null;
+  docType: string;
+  docRef: string | null;
+  note: string | null;
 }
 
 const tl = (n: number) =>
@@ -47,6 +75,7 @@ function profit(salePrice: number | null, purchasePrice: number | null) {
 export function StockPage() {
   const { has } = useAuth();
   const canAdd = has("STOCK_ADD");
+  const [tab, setTab] = useState<"urunler" | "hareket">("urunler");
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
@@ -61,6 +90,7 @@ export function StockPage() {
       <PageHeader
         title={t.nav.stock}
         actions={
+          tab === "urunler" &&
           canAdd && (
             <button className="btn-primary" onClick={() => setShowForm((v) => !v)}>
               {t.common.add}
@@ -69,6 +99,29 @@ export function StockPage() {
         }
       />
 
+      <div className="mb-4 flex gap-1 border-b border-slate-200">
+        {[
+          { key: "urunler" as const, label: "Ürünler" },
+          { key: "hareket" as const, label: "Stok Hareketi" },
+        ].map((it) => (
+          <button
+            key={it.key}
+            onClick={() => setTab(it.key)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+              tab === it.key
+                ? "border-brand-600 text-brand-700"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "hareket" ? (
+        <StockMovementTab />
+      ) : (
+        <>
       {showForm && <NewItemForm onClose={() => setShowForm(false)} />}
 
       <input
@@ -153,6 +206,286 @@ export function StockPage() {
       )}
 
       {openId && <ItemDetailPanel id={openId} onClose={() => setOpenId(null)} />}
+        </>
+      )}
+    </div>
+  );
+}
+
+const directionLabel: Record<string, string> = { IN: "Giriş", OUT: "Çıkış" };
+
+function StockMovementTab() {
+  const { has } = useAuth();
+  const canAdd = has("STOCK_ADD");
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<"IN" | "OUT" | "TRANSFER">("IN");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [itemId, setItemId] = useState<number | "">("");
+  const [unitId, setUnitId] = useState<number | "">("");
+  const [warehouseId, setWarehouseId] = useState<number | "">("");
+  const [fromWarehouseId, setFromWarehouseId] = useState<number | "">("");
+  const [toWarehouseId, setToWarehouseId] = useState<number | "">("");
+  const [quantity, setQuantity] = useState("");
+  const [unitCost, setUnitCost] = useState("");
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const items = useQuery({
+    queryKey: ["stock-items", "all-for-movement"],
+    queryFn: () => api<Page<ItemRow>>("/api/v1/stock/items?size=200"),
+  });
+  const warehouses = useQuery({
+    queryKey: ["warehouses"],
+    queryFn: () => api<WarehouseView[]>("/api/v1/stock/warehouses"),
+  });
+  const itemDetail = useQuery({
+    queryKey: ["stock-item", itemId],
+    queryFn: () => api<ItemDetail>(`/api/v1/stock/items/${itemId}`),
+    enabled: itemId !== "",
+  });
+  const recent = useQuery({
+    queryKey: ["stock-movements-recent"],
+    queryFn: () => api<MovementRow[]>("/api/v1/stock/reports/movements"),
+  });
+
+  const units = itemDetail.data?.units ?? [];
+
+  const reset = () => {
+    setQuantity("");
+    setUnitCost("");
+    setNote("");
+  };
+
+  const submit = useMutation({
+    mutationFn: () => {
+      if (mode === "TRANSFER") {
+        return api("/api/v1/stock/transfers", {
+          method: "POST",
+          body: {
+            date,
+            itemId: Number(itemId),
+            fromWarehouseId: Number(fromWarehouseId),
+            toWarehouseId: Number(toWarehouseId),
+            unitId: Number(unitId),
+            quantity: Number(quantity),
+            note: note || null,
+          },
+        });
+      }
+      return api("/api/v1/stock/movements", {
+        method: "POST",
+        body: {
+          date,
+          warehouseId: Number(warehouseId),
+          direction: mode,
+          lines: [
+            {
+              itemId: Number(itemId),
+              unitId: Number(unitId),
+              quantity: Number(quantity),
+              unitCost: mode === "IN" && unitCost ? Number(unitCost) : null,
+              note: note || null,
+            },
+          ],
+        },
+      });
+    },
+    onSuccess: () => {
+      reset();
+      qc.invalidateQueries({ queryKey: ["stock-items"] });
+      qc.invalidateQueries({ queryKey: ["stock-item", itemId] });
+      qc.invalidateQueries({ queryKey: ["stock-movements-recent"] });
+      qc.invalidateQueries({ queryKey: ["report-stock-status"] });
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    submit.mutate();
+  };
+
+  const canSubmit =
+    itemId !== "" &&
+    unitId !== "" &&
+    quantity !== "" &&
+    (mode === "TRANSFER" ? fromWarehouseId !== "" && toWarehouseId !== "" : warehouseId !== "");
+
+  return (
+    <div>
+      {canAdd && (
+        <form onSubmit={handleSubmit} className="card mb-4 grid gap-3 sm:grid-cols-4">
+          {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-4">{err}</div>}
+          <div>
+            <label className="label">Hareket Türü</label>
+            <select
+              className="input"
+              value={mode}
+              onChange={(e) => {
+                setMode(e.target.value as "IN" | "OUT" | "TRANSFER");
+                setUnitCost("");
+              }}
+            >
+              <option value="IN">Giriş (Alış)</option>
+              <option value="OUT">Çıkış</option>
+              <option value="TRANSFER">Transfer</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Tarih</label>
+            <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Ürün</label>
+            <select
+              className="input"
+              value={itemId}
+              onChange={(e) => {
+                setItemId(e.target.value ? Number(e.target.value) : "");
+                setUnitId("");
+              }}
+            >
+              <option value="">Seçin</option>
+              {(items.data?.content ?? [])
+                .filter((i) => i.type === "EMTIA")
+                .map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.code} — {i.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Birim</label>
+            <select className="input" value={unitId} onChange={(e) => setUnitId(e.target.value ? Number(e.target.value) : "")}>
+              <option value="">Seçin</option>
+              {units.map((u) => (
+                <option key={u.unitId} value={u.unitId}>
+                  {u.unitCode}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Miktar</label>
+            <input className="input" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          </div>
+          {mode === "TRANSFER" ? (
+            <>
+              <div>
+                <label className="label">Kaynak Depo</label>
+                <select
+                  className="input"
+                  value={fromWarehouseId}
+                  onChange={(e) => setFromWarehouseId(e.target.value ? Number(e.target.value) : "")}
+                >
+                  <option value="">Seçin</option>
+                  {(warehouses.data ?? []).map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Hedef Depo</label>
+                <select
+                  className="input"
+                  value={toWarehouseId}
+                  onChange={(e) => setToWarehouseId(e.target.value ? Number(e.target.value) : "")}
+                >
+                  <option value="">Seçin</option>
+                  {(warehouses.data ?? []).map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="label">Depo</label>
+                <select
+                  className="input"
+                  value={warehouseId}
+                  onChange={(e) => setWarehouseId(e.target.value ? Number(e.target.value) : "")}
+                >
+                  <option value="">Seçin</option>
+                  {(warehouses.data ?? []).map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {mode === "IN" && (
+                <div>
+                  <label className="label">Birim Maliyet</label>
+                  <input className="input" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
+                </div>
+              )}
+            </>
+          )}
+          <div className="sm:col-span-2">
+            <label className="label">Not</label>
+            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          <div className="flex items-end sm:col-span-4">
+            <button className="btn-primary" disabled={submit.isPending || !canSubmit}>
+              {t.common.save}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-slate-500">
+            <tr>
+              <th className="px-4 py-2 font-medium">Tarih</th>
+              <th className="px-4 py-2 font-medium">Ürün</th>
+              <th className="px-4 py-2 font-medium">Depo</th>
+              <th className="px-4 py-2 font-medium">Yön</th>
+              <th className="px-4 py-2 text-right font-medium">Miktar</th>
+              <th className="px-4 py-2 text-right font-medium">Birim Maliyet</th>
+              <th className="px-4 py-2 font-medium">Not</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {(recent.data ?? []).slice(0, 30).map((m) => (
+              <tr key={m.id}>
+                <td className="px-4 py-2">{new Date(m.date).toLocaleDateString("tr-TR")}</td>
+                <td className="px-4 py-2 font-medium">{m.itemName}</td>
+                <td className="px-4 py-2 text-slate-500">{m.warehouseCode}</td>
+                <td className="px-4 py-2">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-xs ${
+                      m.direction === "IN" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {directionLabel[m.direction] ?? m.direction}
+                  </span>
+                </td>
+                <td className="px-4 py-2 text-right tabular-nums">{Number(m.baseQty).toLocaleString("tr-TR")}</td>
+                <td className="px-4 py-2 text-right tabular-nums">
+                  {m.unitCost != null ? tl(m.unitCost) : "—"}
+                </td>
+                <td className="px-4 py-2 text-slate-500">{m.note ?? "—"}</td>
+              </tr>
+            ))}
+            {(recent.data ?? []).length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                  {t.common.noRecords}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
