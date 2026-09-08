@@ -67,6 +67,7 @@ export function AppointmentsPage() {
   const { has } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"takvim" | "bekleme" | "vardiya">("takvim");
+  const [view, setView] = useState<"liste" | "grid">("liste");
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [showForm, setShowForm] = useState(false);
 
@@ -114,6 +115,23 @@ export function AppointmentsPage() {
         actions={
           tab === "takvim" && (
             <div className="flex items-center gap-2">
+              <div className="flex rounded-lg border border-slate-200 p-0.5">
+                {[
+                  { key: "liste" as const, label: "Liste" },
+                  { key: "grid" as const, label: "Grid" },
+                ].map((it) => (
+                  <button
+                    key={it.key}
+                    type="button"
+                    onClick={() => setView(it.key)}
+                    className={`rounded-md px-3 py-1 text-sm font-medium ${
+                      view === it.key ? "bg-brand-600 text-white" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    {it.label}
+                  </button>
+                ))}
+              </div>
               <input
                 type="date"
                 className="input w-auto"
@@ -173,6 +191,16 @@ export function AppointmentsPage() {
       {list.data && list.data.length === 0 && (
         <div className="card text-sm text-slate-500">Bu gün için randevu yok.</div>
       )}
+      {view === "grid" ? (
+        <CalendarGrid
+          appointments={list.data ?? []}
+          staff={staff.data?.content ?? []}
+          staffName={staffName}
+          svcName={svcName}
+          onStatusChange={setStatus.mutate}
+          statusPending={setStatus.isPending}
+        />
+      ) : (
       <div className="space-y-2">
         {(list.data ?? [])
           .slice()
@@ -215,7 +243,175 @@ export function AppointmentsPage() {
             </div>
           ))}
       </div>
+      )}
         </>
+      )}
+    </div>
+  );
+}
+
+const gridBlockColor: Record<string, string> = {
+  PLANLANDI: "bg-slate-200 text-slate-700 border-slate-300",
+  ONAYLANDI: "bg-sky-200 text-sky-800 border-sky-300",
+  GELDI: "bg-green-200 text-green-800 border-green-300",
+  GELMEDI: "bg-red-200 text-red-800 border-red-300",
+  IPTAL: "bg-slate-100 text-slate-400 border-slate-200 line-through",
+};
+
+const PX_PER_MIN = 1.2;
+const MIN_BLOCK_H = 22;
+
+function CalendarGrid({
+  appointments,
+  staff,
+  staffName,
+  svcName,
+  onStatusChange,
+  statusPending,
+}: {
+  appointments: ApptView[];
+  staff: PartyRow[];
+  staffName: (id: number) => string;
+  svcName: (id: number) => string;
+  onStatusChange: (args: { id: number; status: string; collectCash?: boolean }) => void;
+  statusPending: boolean;
+}) {
+  const [selected, setSelected] = useState<ApptView | null>(null);
+
+  const { rangeStartMin, totalMin, hourMarks } = useMemo(() => {
+    let startH = 9;
+    let endH = 20;
+    for (const a of appointments) {
+      const s = new Date(a.startAt);
+      const e = new Date(a.endAt);
+      startH = Math.min(startH, s.getHours());
+      endH = Math.max(endH, e.getMinutes() > 0 ? e.getHours() + 1 : e.getHours());
+    }
+    const marks: number[] = [];
+    for (let h = startH; h <= endH; h++) marks.push(h);
+    return { rangeStartMin: startH * 60, totalMin: (endH - startH) * 60, hourMarks: marks };
+  }, [appointments]);
+
+  const columns = staff.length > 0 ? staff : [];
+  const bodyHeight = totalMin * PX_PER_MIN;
+  const hourLineCss = {
+    backgroundImage:
+      "repeating-linear-gradient(to bottom, transparent, transparent " +
+      (60 * PX_PER_MIN - 1) +
+      "px, #e2e8f0 " +
+      60 * PX_PER_MIN +
+      "px)",
+  };
+
+  const minutesOf = (iso: string) => {
+    const d = new Date(iso);
+    return d.getHours() * 60 + d.getMinutes();
+  };
+
+  if (columns.length === 0) {
+    return <div className="card text-sm text-slate-500">Personel bulunamadı.</div>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="flex" style={{ minWidth: columns.length * 160 + 56 }}>
+        <div className="w-14 shrink-0 border-r border-slate-100">
+          <div className="h-10 border-b border-slate-100" />
+          <div style={{ height: bodyHeight }} className="relative">
+            {hourMarks.map((h) => (
+              <div
+                key={h}
+                className="absolute right-1 -translate-y-1/2 text-xs text-slate-400"
+                style={{ top: (h * 60 - rangeStartMin) * PX_PER_MIN }}
+              >
+                {String(h).padStart(2, "0")}:00
+              </div>
+            ))}
+          </div>
+        </div>
+        {columns.map((s) => (
+          <div key={s.id} className="w-40 shrink-0 border-r border-slate-100 last:border-r-0">
+            <div className="flex h-10 items-center justify-center border-b border-slate-100 px-2 text-sm font-medium">
+              <span className="truncate">{s.title}</span>
+            </div>
+            <div style={{ height: bodyHeight, ...hourLineCss }} className="relative">
+              {appointments
+                .filter((a) => a.staffPartyId === s.id)
+                .map((a) => {
+                  const top = (minutesOf(a.startAt) - rangeStartMin) * PX_PER_MIN;
+                  const height = Math.max(
+                    (minutesOf(a.endAt) - minutesOf(a.startAt)) * PX_PER_MIN,
+                    MIN_BLOCK_H,
+                  );
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => setSelected(a)}
+                      className={`absolute left-0.5 right-0.5 overflow-hidden rounded border px-1 py-0.5 text-left text-[11px] leading-tight ${gridBlockColor[a.status]}`}
+                      style={{ top, height }}
+                    >
+                      <div className="truncate font-medium">{fmtTime(a.startAt)} {svcName(a.serviceId)}</div>
+                      <div className="truncate opacity-80">Müşteri #{a.partyId}</div>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selected && (
+        <div className="fixed inset-0 z-10 flex items-center justify-center bg-slate-900/30 p-4">
+          <div className="card w-full max-w-sm">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="font-semibold">{svcName(selected.serviceId)}</h2>
+              <button className="text-sm text-slate-500 hover:underline" onClick={() => setSelected(null)}>
+                Kapat
+              </button>
+            </div>
+            <div className="mb-3 text-sm text-slate-500">
+              {fmtTime(selected.startAt)}–{fmtTime(selected.endAt)} · {staffName(selected.staffPartyId)} · Müşteri #{selected.partyId}
+              {selected.notes ? ` · ${selected.notes}` : ""}
+            </div>
+            <span className={`mb-3 inline-block rounded px-1.5 py-0.5 text-xs ${statusChip[selected.status]}`}>
+              {selected.status}
+            </span>
+            {selected.status !== "GELDI" && selected.status !== "GELMEDI" && selected.status !== "IPTAL" && (
+              <div className="flex flex-wrap gap-1 text-xs">
+                <button
+                  className="rounded bg-green-600 px-2 py-1 text-white hover:bg-green-700"
+                  disabled={statusPending}
+                  onClick={() => {
+                    onStatusChange({ id: selected.id, status: "GELDI", collectCash: true });
+                    setSelected(null);
+                  }}
+                >
+                  Geldi + Tahsil
+                </button>
+                <button
+                  className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100"
+                  disabled={statusPending}
+                  onClick={() => {
+                    onStatusChange({ id: selected.id, status: "GELMEDI" });
+                    setSelected(null);
+                  }}
+                >
+                  Gelmedi
+                </button>
+                <button
+                  className="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100"
+                  disabled={statusPending}
+                  onClick={() => {
+                    onStatusChange({ id: selected.id, status: "IPTAL" });
+                    setSelected(null);
+                  }}
+                >
+                  İptal
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
