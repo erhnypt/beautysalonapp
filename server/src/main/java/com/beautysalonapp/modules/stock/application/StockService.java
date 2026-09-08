@@ -7,6 +7,7 @@ import com.beautysalonapp.core.error.NotFoundException;
 import com.beautysalonapp.core.sequence.SequenceService;
 import com.beautysalonapp.modules.stock.domain.Item;
 import com.beautysalonapp.modules.stock.domain.ItemBarcode;
+import com.beautysalonapp.modules.stock.domain.ItemCategory;
 import com.beautysalonapp.modules.stock.domain.ItemType;
 import com.beautysalonapp.modules.stock.domain.ItemUnit;
 import com.beautysalonapp.modules.stock.domain.MovementDirection;
@@ -17,6 +18,7 @@ import com.beautysalonapp.modules.stock.domain.Warehouse;
 import com.beautysalonapp.modules.stock.domain.WarehouseType;
 import com.beautysalonapp.modules.stock.domain.WeightedAverageCost;
 import com.beautysalonapp.modules.stock.infrastructure.ItemBarcodeRepository;
+import com.beautysalonapp.modules.stock.infrastructure.ItemCategoryRepository;
 import com.beautysalonapp.modules.stock.infrastructure.ItemRepository;
 import com.beautysalonapp.modules.stock.infrastructure.ItemUnitRepository;
 import com.beautysalonapp.modules.stock.infrastructure.StockLevelRepository;
@@ -48,6 +50,7 @@ public class StockService implements StockPort {
     private final ItemRepository items;
     private final ItemUnitRepository itemUnits;
     private final ItemBarcodeRepository barcodes;
+    private final ItemCategoryRepository categories;
     private final UnitRepository units;
     private final WarehouseRepository warehouses;
     private final StockMovementRepository movements;
@@ -57,12 +60,13 @@ public class StockService implements StockPort {
     private final AuditService audit;
 
     public StockService(ItemRepository items, ItemUnitRepository itemUnits, ItemBarcodeRepository barcodes,
-                        UnitRepository units, WarehouseRepository warehouses, StockMovementRepository movements,
-                        StockLevelRepository levels, SequenceService sequences, SettingService settings,
-                        AuditService audit) {
+                        ItemCategoryRepository categories, UnitRepository units, WarehouseRepository warehouses,
+                        StockMovementRepository movements, StockLevelRepository levels, SequenceService sequences,
+                        SettingService settings, AuditService audit) {
         this.items = items;
         this.itemUnits = itemUnits;
         this.barcodes = barcodes;
+        this.categories = categories;
         this.units = units;
         this.warehouses = warehouses;
         this.movements = movements;
@@ -84,6 +88,20 @@ public class StockService implements StockPort {
             throw new BusinessRuleException("unit_exists", "Bu birim kodu zaten var: " + code);
         }
         return units.save(new Unit(code.trim().toUpperCase(), name.trim()));
+    }
+
+    // --- kategori (ürün grupları) -------------------------------------------
+
+    @Transactional(readOnly = true)
+    public List<ItemCategory> listCategories() {
+        return categories.findAllByDeletedFalseOrderByName();
+    }
+
+    public ItemCategory createCategory(Long parentId, String name) {
+        if (parentId != null) {
+            categories.findById(parentId).orElseThrow(() -> new NotFoundException("Üst kategori", parentId));
+        }
+        return categories.save(new ItemCategory(parentId, name.trim()));
     }
 
     @Transactional(readOnly = true)

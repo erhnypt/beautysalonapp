@@ -2,6 +2,7 @@ package com.beautysalonapp.modules.stock.web;
 
 import com.beautysalonapp.modules.stock.domain.Item;
 import com.beautysalonapp.modules.stock.domain.ItemBarcode;
+import com.beautysalonapp.modules.stock.domain.ItemCategory;
 import com.beautysalonapp.modules.stock.domain.ItemType;
 import com.beautysalonapp.modules.stock.domain.ItemUnit;
 import com.beautysalonapp.modules.stock.domain.MovementDirection;
@@ -37,9 +38,17 @@ public final class StockDtos {
     public record CreateWarehouseRequest(@NotBlank String code, @NotBlank String name,
                                          @NotNull WarehouseType type, boolean makeDefault) {}
 
+    public record CategoryView(long id, Long parentId, String name) {
+        public static CategoryView of(ItemCategory c) {
+            return new CategoryView(c.getId(), c.getParentId(), c.getName());
+        }
+    }
+
+    public record CreateCategoryRequest(Long parentId, @NotBlank String name) {}
+
     public record ItemRow(long id, String code, String name, ItemType type, String brand,
                           BigDecimal vatRate, boolean active, BigDecimal totalOnHand, BigDecimal reorderLevel,
-                          BigDecimal salePrice, BigDecimal purchasePrice) {}
+                          BigDecimal salePrice, BigDecimal purchasePrice, Long categoryId) {}
 
     public record UpdateReorderLevelRequest(BigDecimal reorderLevel) {}
 
@@ -112,6 +121,7 @@ public final class StockDtos {
         return new ItemRow(i.getId(), i.getCode(), i.getName(), i.getType(), i.getBrand(),
                 i.getVatRate(), i.isActive(), totalOnHand, i.getReorderLevel(),
                 baseUnit == null ? null : baseUnit.getSalePrice(),
-                baseUnit == null ? null : baseUnit.getPurchasePrice());
+                baseUnit == null ? null : baseUnit.getPurchasePrice(),
+                i.getCategoryId());
     }
 }

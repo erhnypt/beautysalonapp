@@ -17,9 +17,15 @@ interface ItemRow {
   reorderLevel: number | null;
   salePrice: number | null;
   purchasePrice: number | null;
+  categoryId: number | null;
 }
 interface Page<T> {
   content: T[];
+}
+interface CategoryView {
+  id: number;
+  parentId: number | null;
+  name: string;
 }
 interface UnitView {
   id: number;
@@ -77,13 +83,24 @@ export function StockPage() {
   const canAdd = has("STOCK_ADD");
   const [tab, setTab] = useState<"urunler" | "hareket">("urunler");
   const [q, setQ] = useState("");
+  const [categoryId, setCategoryId] = useState<number | "">("");
   const [showForm, setShowForm] = useState(false);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
 
   const items = useQuery({
-    queryKey: ["stock-items", q],
-    queryFn: () => api<Page<ItemRow>>(`/api/v1/stock/items?q=${encodeURIComponent(q)}&size=100`),
+    queryKey: ["stock-items", q, categoryId],
+    queryFn: () =>
+      api<Page<ItemRow>>(
+        `/api/v1/stock/items?q=${encodeURIComponent(q)}&size=100${categoryId ? `&categoryId=${categoryId}` : ""}`,
+      ),
   });
+  const categories = useQuery({
+    queryKey: ["stock-categories"],
+    queryFn: () => api<CategoryView[]>("/api/v1/stock/categories"),
+  });
+  const categoryName = (id: number | null) =>
+    id == null ? null : categories.data?.find((c) => c.id === id)?.name ?? `#${id}`;
 
   return (
     <div>
@@ -122,14 +139,39 @@ export function StockPage() {
         <StockMovementTab />
       ) : (
         <>
-      {showForm && <NewItemForm onClose={() => setShowForm(false)} />}
+      {showForm && <NewItemForm categories={categories.data ?? []} onClose={() => setShowForm(false)} />}
+      {showCategoryForm && (
+        <NewCategoryForm
+          categories={categories.data ?? []}
+          onClose={() => setShowCategoryForm(false)}
+        />
+      )}
 
-      <input
-        className="input mb-3 max-w-sm"
-        placeholder={t.common.search}
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-      />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <input
+          className="input max-w-sm"
+          placeholder={t.common.search}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <select
+          className="input w-auto"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")}
+        >
+          <option value="">Tüm kategoriler</option>
+          {(categories.data ?? []).map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        {canAdd && (
+          <button type="button" className="btn-ghost" onClick={() => setShowCategoryForm((v) => !v)}>
+            Kategori Ekle
+          </button>
+        )}
+      </div>
 
       {items.isLoading && <div className="text-slate-500">{t.common.loading}</div>}
       {items.error && <div className="text-red-600">{(items.error as ApiError).message}</div>}
@@ -142,6 +184,7 @@ export function StockPage() {
                 <th className="px-4 py-2 font-medium">Kod</th>
                 <th className="px-4 py-2 font-medium">Ad</th>
                 <th className="px-4 py-2 font-medium">Tür</th>
+                <th className="px-4 py-2 font-medium">Kategori</th>
                 <th className="px-4 py-2 font-medium">Marka</th>
                 <th className="px-4 py-2 text-right font-medium">KDV %</th>
                 <th className="px-4 py-2 text-right font-medium">Toplam Stok</th>
@@ -172,6 +215,7 @@ export function StockPage() {
                         {i.type === "HIZMET" ? "Hizmet" : "Ürün"}
                       </span>
                     </td>
+                    <td className="px-4 py-2 text-slate-500">{categoryName(i.categoryId) ?? "—"}</td>
                     <td className="px-4 py-2 text-slate-500">{i.brand ?? "—"}</td>
                     <td className="px-4 py-2 text-right">{i.vatRate}</td>
                     <td className="px-4 py-2 text-right tabular-nums">
@@ -195,7 +239,7 @@ export function StockPage() {
               })}
               {items.data.content.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-6 text-center text-slate-400">
                     {t.common.noRecords}
                   </td>
                 </tr>
@@ -651,7 +695,67 @@ function ItemDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
   );
 }
 
-function NewItemForm({ onClose }: { onClose: () => void }) {
+function NewCategoryForm({ categories, onClose }: { categories: CategoryView[]; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [parentId, setParentId] = useState<number | "">("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const create = useMutation({
+    mutationFn: () =>
+      api("/api/v1/stock/categories", {
+        method: "POST",
+        body: { name, parentId: parentId ? Number(parentId) : null },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-categories"] });
+      onClose();
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    create.mutate();
+  };
+
+  return (
+    <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="sm:col-span-3 text-sm font-semibold">Yeni Kategori</div>
+      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-3">{err}</div>}
+      <div>
+        <label className="label">Ad</label>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Üst Kategori</label>
+        <select
+          className="input"
+          value={parentId}
+          onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : "")}
+        >
+          <option value="">— (ana kategori)</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-end gap-2">
+        <button className="btn-primary" disabled={create.isPending || !name}>
+          {t.common.save}
+        </button>
+        <button type="button" className="btn-ghost" onClick={onClose}>
+          {t.common.cancel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function NewItemForm({ categories, onClose }: { categories: CategoryView[]; onClose: () => void }) {
   const qc = useQueryClient();
   const units = useQuery({ queryKey: ["units"], queryFn: () => api<UnitView[]>("/api/v1/stock/units") });
   const [name, setName] = useState("");
@@ -661,6 +765,7 @@ function NewItemForm({ onClose }: { onClose: () => void }) {
   const [salePrice, setSalePrice] = useState("");
   const [purchasePrice, setPurchasePrice] = useState("");
   const [brand, setBrand] = useState("");
+  const [categoryId, setCategoryId] = useState<number | "">("");
   const [err, setErr] = useState<string | null>(null);
 
   const create = useMutation({
@@ -675,6 +780,7 @@ function NewItemForm({ onClose }: { onClose: () => void }) {
           brand: brand || null,
           salePrice: salePrice ? Number(salePrice) : null,
           purchasePrice: purchasePrice ? Number(purchasePrice) : null,
+          categoryId: categoryId ? Number(categoryId) : null,
         },
       }),
     onSuccess: () => {
@@ -743,6 +849,21 @@ function NewItemForm({ onClose }: { onClose: () => void }) {
       <div>
         <label className="label">Marka</label>
         <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Kategori</label>
+        <select
+          className="input"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : "")}
+        >
+          <option value="">—</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="flex items-end gap-2 sm:col-span-3">
         <button className="btn-primary" disabled={create.isPending}>

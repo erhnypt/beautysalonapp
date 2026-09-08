@@ -53,6 +53,30 @@ class StockServiceTest {
     }
 
     @Test
+    void kategori_olusturulur_ve_urun_kategoriye_atanir() {
+        var kategori = stock.createCategory(null, "Saç Bakım " + System.nanoTime());
+        Item it = stock.createItem(null, "Şampuan " + System.nanoTime(), ItemType.EMTIA, "ADET",
+                new BigDecimal("20"), kategori.getId(), "MarkaX", new BigDecimal("120"), new BigDecimal("80"));
+
+        assertThat(it.getCategoryId()).isEqualTo(kategori.getId());
+        assertThat(stock.listCategories()).extracting(c -> c.getId()).contains(kategori.getId());
+    }
+
+    @Test
+    void kategoriye_gore_urun_filtrelenir() {
+        var kategoriA = stock.createCategory(null, "Kategori A " + System.nanoTime());
+        var kategoriB = stock.createCategory(null, "Kategori B " + System.nanoTime());
+        Item a = stock.createItem(null, "A Ürünü " + System.nanoTime(), ItemType.EMTIA, "ADET",
+                new BigDecimal("20"), kategoriA.getId(), null, null, null);
+        stock.createItem(null, "B Ürünü " + System.nanoTime(), ItemType.EMTIA, "ADET",
+                new BigDecimal("20"), kategoriB.getId(), null, null, null);
+
+        var filtered = stock.searchItems(null, kategoriA.getId(), null,
+                org.springframework.data.domain.PageRequest.of(0, 50));
+        assertThat(filtered.getContent()).extracting(Item::getId).containsExactly(a.getId());
+    }
+
+    @Test
     void koli_birimi_capraz_donusum_1_koli_12_adet() {
         Item it = newItem();
         stock.addUnit(it.getId(), "KOLI", new BigDecimal("12"), new BigDecimal("1300"), new BigDecimal("900"));

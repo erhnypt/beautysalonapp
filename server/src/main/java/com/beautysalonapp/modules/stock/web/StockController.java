@@ -13,6 +13,8 @@ import com.beautysalonapp.modules.stock.web.StockDtos.AddBarcodeRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.AddItemUnitRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.BarcodeResolutionView;
 import com.beautysalonapp.modules.stock.web.StockDtos.BarcodeView;
+import com.beautysalonapp.modules.stock.web.StockDtos.CategoryView;
+import com.beautysalonapp.modules.stock.web.StockDtos.CreateCategoryRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.CreateItemRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.CreateUnitRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.CreateWarehouseRequest;
@@ -83,6 +85,18 @@ public class StockController {
     @PreAuthorize("hasAuthority('STOCK_EDIT')")
     public WarehouseView createWarehouse(@Valid @RequestBody CreateWarehouseRequest r) {
         return WarehouseView.of(stock.createWarehouse(r.code(), r.name(), r.type(), r.makeDefault()));
+    }
+
+    // --- kategori (ürün grupları) ---
+    @GetMapping("/categories")
+    public List<CategoryView> categories() {
+        return stock.listCategories().stream().map(CategoryView::of).toList();
+    }
+
+    @PostMapping("/categories")
+    @PreAuthorize("hasAuthority('STOCK_EDIT')")
+    public CategoryView createCategory(@Valid @RequestBody CreateCategoryRequest r) {
+        return CategoryView.of(stock.createCategory(r.parentId(), r.name()));
     }
 
     // --- ürün kartı ---
