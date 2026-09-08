@@ -39,7 +39,7 @@ export function FinancePage() {
     queryKey: ["fin-cards"],
     queryFn: () => api<CardView[]>("/api/v1/finance/cards"),
   });
-  const [mode, setMode] = useState<"collect" | "pay" | "fx" | "count" | "account" | null>(null);
+  const [mode, setMode] = useState<"collect" | "pay" | "fx" | "count" | "account" | "card" | null>(null);
   const [lastVoucherTxnId, setLastVoucherTxnId] = useState<number | null>(null);
 
   return (
@@ -65,9 +65,14 @@ export function FinancePage() {
               </>
             )}
             {canEdit && (
-              <button className="btn-ghost" onClick={() => setMode("account")}>
-                Hesap Ekle
-              </button>
+              <>
+                <button className="btn-ghost" onClick={() => setMode("account")}>
+                  Hesap Ekle
+                </button>
+                <button className="btn-ghost" onClick={() => setMode("card")}>
+                  Gelir/Gider Kartı Ekle
+                </button>
+              </>
             )}
           </div>
         }
@@ -134,6 +139,15 @@ export function FinancePage() {
           }}
         />
       )}
+      {mode === "card" && (
+        <NewCardForm
+          onClose={() => setMode(null)}
+          onDone={() => {
+            qc.invalidateQueries({ queryKey: ["fin-cards"] });
+            setMode(null);
+          }}
+        />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {(accounts.data ?? []).map((a) => (
@@ -156,6 +170,36 @@ export function FinancePage() {
           </div>
         ))}
         {accounts.isLoading && <div className="text-slate-500">{t.common.loading}</div>}
+      </div>
+
+      <h2 className="mb-2 mt-6 text-sm font-semibold text-slate-700">Gelir/Gider Kartları</h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <div className="mb-1 text-xs font-medium uppercase text-slate-400">Gelir</div>
+          <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm">
+            {(cards.data ?? [])
+              .filter((c) => c.direction === "INCOME" && c.postable)
+              .map((c) => (
+                <li key={c.id} className="flex justify-between border-b border-slate-100 px-3 py-1.5 last:border-b-0">
+                  <span className="font-mono text-xs text-slate-400">{c.code}</span>
+                  <span>{c.name}</span>
+                </li>
+              ))}
+          </ul>
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-medium uppercase text-slate-400">Gider</div>
+          <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white text-sm">
+            {(cards.data ?? [])
+              .filter((c) => c.direction === "EXPENSE" && c.postable)
+              .map((c) => (
+                <li key={c.id} className="flex justify-between border-b border-slate-100 px-3 py-1.5 last:border-b-0">
+                  <span className="font-mono text-xs text-slate-400">{c.code}</span>
+                  <span>{c.name}</span>
+                </li>
+              ))}
+          </ul>
+        </div>
       </div>
     </div>
   );
@@ -455,6 +499,59 @@ function CashCountForm({
           className="btn-primary"
           disabled={submit.isPending || !accountId || !countedAmount || (difference !== 0 && !reason)}
         >
+          {t.common.save}
+        </button>
+        <button type="button" className="btn-ghost" onClick={onClose}>
+          {t.common.cancel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function NewCardForm({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+  const [direction, setDirection] = useState<"INCOME" | "EXPENSE">("EXPENSE");
+  const [err, setErr] = useState<string | null>(null);
+
+  const create = useMutation({
+    mutationFn: () =>
+      api("/api/v1/finance/cards", {
+        method: "POST",
+        body: { code, name, direction, serviceCard: false },
+      }),
+    onSuccess: onDone,
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    create.mutate();
+  };
+
+  return (
+    <form onSubmit={submit} className="card mb-5 grid gap-3 sm:grid-cols-4">
+      <div className="sm:col-span-4 text-sm font-semibold">Yeni Gelir/Gider Kartı</div>
+      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-4">{err}</div>}
+      <div>
+        <label className="label">Kod</label>
+        <input className="input" placeholder="700.10" value={code} onChange={(e) => setCode(e.target.value)} />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="label">Ad</label>
+        <input className="input" placeholder="Reklam / Kırtasiye / ..." value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Yön</label>
+        <select className="input" value={direction} onChange={(e) => setDirection(e.target.value as "INCOME" | "EXPENSE")}>
+          <option value="EXPENSE">Gider</option>
+          <option value="INCOME">Gelir</option>
+        </select>
+      </div>
+      <div className="flex items-end gap-2 sm:col-span-4">
+        <button className="btn-primary" disabled={create.isPending || !code || !name}>
           {t.common.save}
         </button>
         <button type="button" className="btn-ghost" onClick={onClose}>

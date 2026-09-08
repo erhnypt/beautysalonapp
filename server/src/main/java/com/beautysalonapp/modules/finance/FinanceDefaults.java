@@ -48,6 +48,11 @@ public class FinanceDefaults implements ApplicationRunner {
         seedCard(null, "700.01", "Kira", CardDirection.EXPENSE, false, true);
         seedCard(null, "700.02", "Personel Maaş/Prim", CardDirection.EXPENSE, false, true);
         seedCard(null, "700.03", "Malzeme/Sarf Alımı", CardDirection.EXPENSE, false, true);
+        seedCard(null, "700.04", "Elektrik", CardDirection.EXPENSE, false, true);
+        seedCard(null, "700.05", "Su", CardDirection.EXPENSE, false, true);
+        seedCard(null, "700.06", "İnternet", CardDirection.EXPENSE, false, true);
+        seedCard(null, "700.07", "Muhasebe/Mali Müşavirlik", CardDirection.EXPENSE, false, true);
+        seedCard(null, "700.08", "İşçi/Taşeron Gideri", CardDirection.EXPENSE, false, true);
         seedCard(null, "700.09", "Genel Giderler", CardDirection.EXPENSE, false, true);
     }
 
