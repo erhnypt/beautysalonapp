@@ -4,10 +4,14 @@ import com.beautysalonapp.backup.application.BackupService;
 import com.beautysalonapp.modules.party.application.PartyService;
 import com.beautysalonapp.modules.party.domain.PartyType;
 import com.beautysalonapp.modules.party.infrastructure.PartyRepository;
+import com.beautysalonapp.settings.application.SettingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -19,6 +23,7 @@ class BackupServiceTest {
     @Autowired BackupService backup;
     @Autowired PartyService partyService;
     @Autowired PartyRepository parties;
+    @Autowired SettingService settings;
 
     @Test
     void yedek_alinir_ve_dogrulanir() {
@@ -53,5 +58,20 @@ class BackupServiceTest {
 
         // Yedek anındaki sayıya dönmeli; B kaydı gitmeli
         assertThat(parties.count()).isEqualTo(before);
+    }
+
+    @Test
+    void ikincil_hedef_ayarlar_ekranindan_degistirilebilir(@org.junit.jupiter.api.io.TempDir Path tmp) {
+        // Ayarlar ekranındaki "backup.secondaryDir" değeri application.yml'deki
+        // değerin önüne geçmeli (bkz. BackupService.copyToSecondary).
+        settings.put("backup.secondaryDir", tmp.toString());
+
+        backup.createBackup("MANUAL", "test");
+
+        try (var files = Files.list(tmp)) {
+            assertThat(files.anyMatch(p -> p.getFileName().toString().endsWith(".bsa"))).isTrue();
+        } catch (java.io.IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -135,9 +135,12 @@ public class AppointmentService {
                 type == null ? "ODA" : type.toUpperCase()));
     }
 
-    public StaffShift addShift(long staffPartyId, LocalDate date, LocalTime start, LocalTime end, String type) {
+    public StaffShift addShift(long staffPartyId, LocalDate date, LocalTime start, LocalTime end,
+                               String type, String note) {
         requireStaff(staffPartyId);
-        return shifts.save(new StaffShift(staffPartyId, date, start, end, type == null ? "WORK" : type.toUpperCase()));
+        StaffShift shift = new StaffShift(staffPartyId, date, start, end, type == null ? "WORK" : type.toUpperCase());
+        shift.setNote(note);
+        return shifts.save(shift);
     }
 
     @Transactional(readOnly = true)

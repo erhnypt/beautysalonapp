@@ -5,6 +5,7 @@ import com.beautysalonapp.modules.notification.application.NotificationService;
 import com.beautysalonapp.modules.notification.domain.NotificationChannel;
 import com.beautysalonapp.modules.notification.domain.NotificationType;
 import com.beautysalonapp.modules.reporting.application.ReportService;
+import com.beautysalonapp.settings.application.SettingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,13 +32,15 @@ public class NotificationTriggers {
     private final NotificationService notifications;
     private final ReportService reports;
     private final AppProperties props;
+    private final SettingService settings;
 
     public NotificationTriggers(DataSource ds, NotificationService notifications,
-                                ReportService reports, AppProperties props) {
+                                ReportService reports, AppProperties props, SettingService settings) {
         this.jdbc = new JdbcTemplate(ds);
         this.notifications = notifications;
         this.reports = reports;
         this.props = props;
+        this.settings = settings;
     }
 
     private boolean disabled() {
@@ -135,11 +138,11 @@ public class NotificationTriggers {
         }
     }
 
-    /** Gün sonu yönetici raporu — her gece 23:30. */
+    /** Gün sonu yönetici raporu — her gece 23:30. Alıcı Ayarlar ekranından değiştirilebilir. */
     @Scheduled(cron = "0 30 23 * * *")
     public void managerDailyReport() {
         if (disabled()) return;
-        String to = props.getNotification().getManagerEmail();
+        String to = settings.getOrDefault("notification.managerEmail", props.getNotification().getManagerEmail());
         if (to == null || to.isBlank()) {
             return;
         }

@@ -42,6 +42,15 @@ interface WaitlistView {
   status: "BEKLEMEDE" | "RANDEVUYA_DONUSTU" | "IPTAL";
   appointmentId: number | null;
 }
+interface ShiftView {
+  id: number;
+  staffPartyId: number;
+  date: string;
+  startTime: string | null;
+  endTime: string | null;
+  type: "WORK" | "LEAVE";
+  note: string | null;
+}
 
 const statusChip: Record<string, string> = {
   PLANLANDI: "bg-slate-100 text-slate-600",
@@ -57,7 +66,7 @@ const fmtTime = (iso: string) =>
 export function AppointmentsPage() {
   const { has } = useAuth();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"takvim" | "bekleme">("takvim");
+  const [tab, setTab] = useState<"takvim" | "bekleme" | "vardiya">("takvim");
   const [day, setDay] = useState(() => new Date().toISOString().slice(0, 10));
   const [showForm, setShowForm] = useState(false);
 
@@ -125,6 +134,7 @@ export function AppointmentsPage() {
         {[
           { key: "takvim" as const, label: "Takvim" },
           { key: "bekleme" as const, label: "Bekleme Listesi" },
+          { key: "vardiya" as const, label: "Vardiya" },
         ].map((it) => (
           <button
             key={it.key}
@@ -142,6 +152,8 @@ export function AppointmentsPage() {
 
       {tab === "bekleme" ? (
         <WaitlistTab staff={staff.data?.content ?? []} services={services.data ?? []} />
+      ) : tab === "vardiya" ? (
+        <ShiftsTab staff={staff.data?.content ?? []} />
       ) : (
         <>
       {showForm && (
@@ -301,6 +313,193 @@ function WaitlistTab({ staff, services }: { staff: PartyRow[]; services: Service
         />
       )}
     </div>
+  );
+}
+
+const shiftTypeLabel: Record<string, string> = { WORK: "Çalışıyor", LEAVE: "İzinli" };
+
+function startOfWeek(d: Date) {
+  const x = new Date(d);
+  const day = x.getDay(); // 0=Pazar
+  const diff = day === 0 ? -6 : 1 - day; // Pazartesi başlangıç
+  x.setDate(x.getDate() + diff);
+  return x;
+}
+const toDateStr = (d: Date) => d.toISOString().slice(0, 10);
+
+function ShiftsTab({ staff }: { staff: PartyRow[] }) {
+  const { has } = useAuth();
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [from, setFrom] = useState(() => toDateStr(startOfWeek(new Date())));
+  const [to, setTo] = useState(() => {
+    const d = startOfWeek(new Date());
+    d.setDate(d.getDate() + 6);
+    return toDateStr(d);
+  });
+
+  const list = useQuery({
+    queryKey: ["shifts", from, to],
+    queryFn: () => api<ShiftView[]>(`/api/v1/appointments/shifts?from=${from}&to=${to}`),
+  });
+
+  const staffName = (id: number) => staff.find((s) => s.id === id)?.title ?? `#${id}`;
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <input type="date" className="input w-auto" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <span className="text-slate-400">—</span>
+          <input type="date" className="input w-auto" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        {has("APPOINTMENT_EDIT") && (
+          <button className="btn-primary" onClick={() => setShowForm((v) => !v)}>
+            {t.common.add}
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <NewShiftForm
+          staff={staff}
+          defaultDate={from}
+          onClose={() => setShowForm(false)}
+          onDone={() => {
+            qc.invalidateQueries({ queryKey: ["shifts"] });
+            setShowForm(false);
+          }}
+        />
+      )}
+
+      {list.isLoading && <div className="text-slate-500">{t.common.loading}</div>}
+      <div className="space-y-2">
+        {(list.data ?? [])
+          .slice()
+          .sort((a, b) => a.date.localeCompare(b.date) || staffName(a.staffPartyId).localeCompare(staffName(b.staffPartyId)))
+          .map((s) => (
+            <div key={s.id} className="card flex items-center gap-4 py-3">
+              <div className="w-28 shrink-0 text-sm font-medium tabular-nums">
+                {new Date(s.date).toLocaleDateString("tr-TR")}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{staffName(s.staffPartyId)}</div>
+                {s.startTime && s.endTime && (
+                  <div className="text-xs text-slate-500">
+                    {s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}
+                    {s.note ? ` · ${s.note}` : ""}
+                  </div>
+                )}
+              </div>
+              <span
+                className={`rounded px-1.5 py-0.5 text-xs ${
+                  s.type === "LEAVE" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
+                }`}
+              >
+                {shiftTypeLabel[s.type] ?? s.type}
+              </span>
+            </div>
+          ))}
+        {list.data && list.data.length === 0 && (
+          <div className="card text-sm text-slate-500">Bu aralıkta vardiya kaydı yok.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NewShiftForm({
+  staff,
+  defaultDate,
+  onClose,
+  onDone,
+}: {
+  staff: PartyRow[];
+  defaultDate: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [staffPartyId, setStaffPartyId] = useState<number | "">("");
+  const [date, setDate] = useState(defaultDate);
+  const [type, setType] = useState<"WORK" | "LEAVE">("WORK");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("18:00");
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const add = useMutation({
+    mutationFn: () =>
+      api("/api/v1/appointments/shifts", {
+        method: "POST",
+        body: {
+          staffPartyId: Number(staffPartyId),
+          date,
+          type,
+          startTime: type === "WORK" ? `${startTime}:00` : null,
+          endTime: type === "WORK" ? `${endTime}:00` : null,
+          note: note || null,
+        },
+      }),
+    onSuccess: onDone,
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    add.mutate();
+  };
+
+  return (
+    <form onSubmit={submit} className="card mb-4 grid gap-3 sm:grid-cols-5">
+      {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-5">{err}</div>}
+      <div>
+        <label className="label">Personel</label>
+        <select className="input" value={staffPartyId} onChange={(e) => setStaffPartyId(e.target.value ? Number(e.target.value) : "")}>
+          <option value="">Seçin</option>
+          {staff.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.title}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="label">Tarih</label>
+        <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Tür</label>
+        <select className="input" value={type} onChange={(e) => setType(e.target.value as "WORK" | "LEAVE")}>
+          <option value="WORK">Çalışıyor</option>
+          <option value="LEAVE">İzinli</option>
+        </select>
+      </div>
+      {type === "WORK" && (
+        <>
+          <div>
+            <label className="label">Başlangıç</label>
+            <input type="time" className="input" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Bitiş</label>
+            <input type="time" className="input" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+          </div>
+        </>
+      )}
+      <div className="sm:col-span-5">
+        <label className="label">Not</label>
+        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      <div className="flex items-end gap-2 sm:col-span-5">
+        <button className="btn-primary" disabled={add.isPending || !staffPartyId || !date}>
+          {t.common.save}
+        </button>
+        <button type="button" className="btn-ghost" onClick={onClose}>
+          {t.common.cancel}
+        </button>
+      </div>
+    </form>
   );
 }
 

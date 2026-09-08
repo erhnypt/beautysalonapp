@@ -9,6 +9,7 @@ import com.beautysalonapp.modules.appointment.domain.Appointment;
 import com.beautysalonapp.modules.appointment.domain.AppointmentStatus;
 import com.beautysalonapp.modules.appointment.domain.Resource;
 import com.beautysalonapp.modules.appointment.domain.ServiceDefinition;
+import com.beautysalonapp.modules.appointment.domain.StaffShift;
 import com.beautysalonapp.modules.appointment.domain.Waitlist;
 import com.beautysalonapp.modules.appointment.domain.WaitlistStatus;
 import jakarta.validation.Valid;
@@ -27,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @RestController
@@ -197,5 +200,32 @@ public class AppointmentController {
     public ApptView convertWaitlist(@PathVariable long id, @Valid @RequestBody ConvertWaitlistRequest r) {
         return ApptView.of(service.convertWaitlistToAppointment(id, r.staffPartyId(), r.resourceId(),
                 r.startAt(), r.notes()));
+    }
+
+    // --- personel vardiyası (plan Faz 3) ---
+
+    public record ShiftView(long id, long staffPartyId, LocalDate date, LocalTime startTime,
+                            LocalTime endTime, String type, String note) {
+        static ShiftView of(StaffShift s) {
+            return new ShiftView(s.getId(), s.getStaffPartyId(), s.getDate(), s.getStartTime(),
+                    s.getEndTime(), s.getType(), s.getNote());
+        }
+    }
+
+    public record AddShiftRequest(@NotNull Long staffPartyId, @NotNull LocalDate date,
+                                  LocalTime startTime, LocalTime endTime, String type, String note) {}
+
+    @GetMapping("/shifts")
+    public List<ShiftView> shifts(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return service.shifts(from, to).stream().map(ShiftView::of).toList();
+    }
+
+    @PostMapping("/shifts")
+    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    public ShiftView addShift(@Valid @RequestBody AddShiftRequest r) {
+        return ShiftView.of(service.addShift(r.staffPartyId(), r.date(), r.startTime(), r.endTime(),
+                r.type(), r.note()));
     }
 }

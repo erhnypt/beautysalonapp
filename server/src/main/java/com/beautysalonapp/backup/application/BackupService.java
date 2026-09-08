@@ -7,6 +7,7 @@ import com.beautysalonapp.backup.infrastructure.BackupLog;
 import com.beautysalonapp.backup.infrastructure.BackupLogRepository;
 import com.beautysalonapp.config.AppProperties;
 import com.beautysalonapp.core.error.BusinessRuleException;
+import com.beautysalonapp.settings.application.SettingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import jakarta.persistence.EntityManager;
@@ -70,12 +71,14 @@ public class BackupService {
     private final ObjectMapper objectMapper;
     private final AuditService audit;
     private final ObjectProvider<Flyway> flyway;
+    private final SettingService settings;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public BackupService(AppProperties props, DataSource dataSource, BackupLogRepository logs,
-                         ObjectMapper objectMapper, AuditService audit, ObjectProvider<Flyway> flyway) {
+                         ObjectMapper objectMapper, AuditService audit, ObjectProvider<Flyway> flyway,
+                         SettingService settings) {
         this.props = props;
         this.dataSource = dataSource;
         this.jdbc = new JdbcTemplate(dataSource);
@@ -83,6 +86,7 @@ public class BackupService {
         this.objectMapper = objectMapper;
         this.audit = audit;
         this.flyway = flyway;
+        this.settings = settings;
     }
 
     // --- durum ---------------------------------------------------------
@@ -406,7 +410,7 @@ public class BackupService {
     }
 
     private void copyToSecondary(Path source, String fileName) {
-        String secondary = props.getBackup().getSecondaryDir();
+        String secondary = settings.getOrDefault("backup.secondaryDir", props.getBackup().getSecondaryDir());
         if (secondary == null || secondary.isBlank()) {
             return;
         }

@@ -159,6 +159,28 @@ class AppointmentServiceTest {
     }
 
     @Test
+    void vardiya_eklenir_ve_tarih_araliginda_listelenir() {
+        long s = staff();
+        LocalDate date = LocalDate.of(2026, 9, 21);
+        var shift = appts.addShift(s, date, java.time.LocalTime.of(9, 0), java.time.LocalTime.of(18, 0),
+                "work", "Hafta içi");
+
+        assertThat(shift.getType()).isEqualTo("WORK");
+        assertThat(shift.getNote()).isEqualTo("Hafta içi");
+
+        var found = appts.shifts(date, date);
+        assertThat(found).extracting(sh -> sh.getStaffPartyId()).contains(s);
+    }
+
+    @Test
+    void vardiya_olmayan_personelle_reddedilir() {
+        long notStaff = customer();
+        assertThatThrownBy(() -> appts.addShift(notStaff, LocalDate.of(2026, 9, 21),
+                null, null, "LEAVE", null))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
     void move_cakisma_kontrol_eder() {
         long s = staff();
         long svcId = svc(60, "0").getId();
