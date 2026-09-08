@@ -5,6 +5,7 @@ import com.beautysalonapp.modules.stock.application.StockReportService;
 import com.beautysalonapp.modules.stock.application.StockService;
 import com.beautysalonapp.modules.stock.domain.Item;
 import com.beautysalonapp.modules.stock.domain.ItemType;
+import com.beautysalonapp.modules.stock.domain.ItemUnit;
 import com.beautysalonapp.modules.stock.domain.MovementDirection;
 import com.beautysalonapp.modules.stock.domain.Unit;
 import com.beautysalonapp.modules.stock.infrastructure.UnitRepository;
@@ -22,6 +23,7 @@ import com.beautysalonapp.modules.stock.web.StockDtos.LevelView;
 import com.beautysalonapp.modules.stock.web.StockDtos.MovementRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.TransferRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.UnitView;
+import com.beautysalonapp.modules.stock.web.StockDtos.UpdatePricesRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.UpdateReorderLevelRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.WarehouseView;
 import jakarta.validation.Valid;
@@ -91,32 +93,41 @@ public class StockController {
                                @RequestParam(defaultValue = "0") int page,
                                @RequestParam(defaultValue = "25") int size) {
         return stock.searchItems(type, categoryId, q, PageRequest.of(page, Math.min(size, 200)))
-                .map(i -> StockDtos.toRow(i, totalOnHand(i.getId())));
+                .map(i -> StockDtos.toRow(i, totalOnHand(i.getId()), baseUnitOf(i.getId())));
     }
 
     @GetMapping("/items/{id}")
     public ItemDetail item(@PathVariable long id) {
         Item i = stock.getItem(id);
         Map<Long, String> unitCodes = unitCodeMap();
-        List<ItemUnitView> us = stock.unitsOf(id).stream()
+        List<ItemUnit> unitEntities = stock.unitsOf(id);
+        List<ItemUnitView> us = unitEntities.stream()
                 .map(iu -> ItemUnitView.of(iu, unitCodes.getOrDefault(iu.getUnitId(), "?"))).toList();
         List<BarcodeView> bs = stock.barcodesOf(id).stream().map(BarcodeView::of).toList();
         List<LevelView> ls = stock.levelsOf(id).stream().map(LevelView::of).toList();
-        return new ItemDetail(StockDtos.toRow(i, totalOnHand(id)), us, bs, ls);
+        ItemUnit base = unitEntities.stream().filter(ItemUnit::isBase).findFirst().orElse(null);
+        return new ItemDetail(StockDtos.toRow(i, totalOnHand(id), base), us, bs, ls);
     }
 
     @PostMapping("/items")
     @PreAuthorize("hasAuthority('STOCK_ADD')")
     public ItemDetail createItem(@Valid @RequestBody CreateItemRequest r) {
         Item i = stock.createItem(r.code(), r.name(), r.type(), r.baseUnitCode(), r.vatRate(),
-                r.categoryId(), r.brand(), r.salePrice());
+                r.categoryId(), r.brand(), r.salePrice(), r.purchasePrice());
         return item(i.getId());
     }
 
     @PostMapping("/items/{id}/units")
     @PreAuthorize("hasAuthority('STOCK_EDIT')")
     public ItemDetail addUnit(@PathVariable long id, @Valid @RequestBody AddItemUnitRequest r) {
-        stock.addUnit(id, r.unitCode(), r.factor(), r.salePrice());
+        stock.addUnit(id, r.unitCode(), r.factor(), r.salePrice(), r.purchasePrice());
+        return item(id);
+    }
+
+    @PostMapping("/items/{id}/prices")
+    @PreAuthorize("hasAuthority('STOCK_EDIT')")
+    public ItemDetail updatePrices(@PathVariable long id, @RequestBody UpdatePricesRequest r) {
+        stock.updateBasePrices(id, r.salePrice(), r.purchasePrice());
         return item(id);
     }
 
@@ -224,6 +235,10 @@ public class StockController {
         return stock.levelsOf(itemId).stream()
                 .map(l -> l.getQtyBase())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private ItemUnit baseUnitOf(long itemId) {
+        return stock.unitsOf(itemId).stream().filter(ItemUnit::isBase).findFirst().orElse(null);
     }
 
     private Map<Long, String> unitCodeMap() {

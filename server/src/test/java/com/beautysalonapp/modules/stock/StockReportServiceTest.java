@@ -23,7 +23,7 @@ class StockReportServiceTest {
 
     private Item newItem() {
         return stock.createItem(null, "Rapor Ürünü " + System.nanoTime(), ItemType.EMTIA, "ADET",
-                new BigDecimal("20"), null, "MarkaR", new BigDecimal("150"));
+                new BigDecimal("20"), null, "MarkaR", new BigDecimal("150"), null);
     }
 
     private long depo() {

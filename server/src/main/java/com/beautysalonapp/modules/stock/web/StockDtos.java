@@ -38,14 +38,18 @@ public final class StockDtos {
                                          @NotNull WarehouseType type, boolean makeDefault) {}
 
     public record ItemRow(long id, String code, String name, ItemType type, String brand,
-                          BigDecimal vatRate, boolean active, BigDecimal totalOnHand, BigDecimal reorderLevel) {}
+                          BigDecimal vatRate, boolean active, BigDecimal totalOnHand, BigDecimal reorderLevel,
+                          BigDecimal salePrice, BigDecimal purchasePrice) {}
 
     public record UpdateReorderLevelRequest(BigDecimal reorderLevel) {}
 
+    public record UpdatePricesRequest(BigDecimal salePrice, BigDecimal purchasePrice) {}
+
     public record ItemUnitView(long id, long unitId, String unitCode, BigDecimal factor,
-                               BigDecimal salePrice, boolean isBase) {
+                               BigDecimal salePrice, BigDecimal purchasePrice, boolean isBase) {
         public static ItemUnitView of(ItemUnit iu, String unitCode) {
-            return new ItemUnitView(iu.getId(), iu.getUnitId(), unitCode, iu.getFactor(), iu.getSalePrice(), iu.isBase());
+            return new ItemUnitView(iu.getId(), iu.getUnitId(), unitCode, iu.getFactor(), iu.getSalePrice(),
+                    iu.getPurchasePrice(), iu.isBase());
         }
     }
 
@@ -72,11 +76,12 @@ public final class StockDtos {
             BigDecimal vatRate,
             Long categoryId,
             String brand,
-            BigDecimal salePrice) {
+            BigDecimal salePrice,
+            BigDecimal purchasePrice) {
     }
 
     public record AddItemUnitRequest(@NotBlank String unitCode, @NotNull @Positive BigDecimal factor,
-                                     BigDecimal salePrice) {}
+                                     BigDecimal salePrice, BigDecimal purchasePrice) {}
 
     public record AddBarcodeRequest(@NotBlank String barcode, @NotBlank String unitCode, boolean primary) {}
 
@@ -103,8 +108,10 @@ public final class StockDtos {
     public record BarcodeResolutionView(long itemId, String itemName, long unitId, String unitCode,
                                         BigDecimal factor) {}
 
-    public static ItemRow toRow(Item i, BigDecimal totalOnHand) {
+    public static ItemRow toRow(Item i, BigDecimal totalOnHand, ItemUnit baseUnit) {
         return new ItemRow(i.getId(), i.getCode(), i.getName(), i.getType(), i.getBrand(),
-                i.getVatRate(), i.isActive(), totalOnHand, i.getReorderLevel());
+                i.getVatRate(), i.isActive(), totalOnHand, i.getReorderLevel(),
+                baseUnit == null ? null : baseUnit.getSalePrice(),
+                baseUnit == null ? null : baseUnit.getPurchasePrice());
     }
 }

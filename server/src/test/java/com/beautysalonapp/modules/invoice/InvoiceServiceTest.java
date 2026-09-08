@@ -47,7 +47,7 @@ class InvoiceServiceTest {
 
     private long emtiaItem() {
         return stock.createItem(null, "Ürün " + System.nanoTime(), ItemType.EMTIA, "ADET",
-                new BigDecimal("20"), null, null, new BigDecimal("100")).getId();
+                new BigDecimal("20"), null, null, new BigDecimal("100"), null).getId();
     }
 
     @Test

@@ -32,6 +32,10 @@ public class ItemUnit extends BaseEntity {
     @Column(name = "sale_price", precision = 19, scale = 4)
     private BigDecimal salePrice;
 
+    /** Referans alış fiyatı — kâr marjı gösterimi için (gerçek maliyet {@code StockLevel.avgCost}). */
+    @Column(name = "purchase_price", precision = 19, scale = 4)
+    private BigDecimal purchasePrice;
+
     @Column(name = "is_base", nullable = false)
     private boolean isBase = false;
 
@@ -53,6 +57,8 @@ public class ItemUnit extends BaseEntity {
     public void setFactor(BigDecimal factor) { this.factor = factor; }
     public BigDecimal getSalePrice() { return salePrice; }
     public void setSalePrice(BigDecimal salePrice) { this.salePrice = salePrice; }
+    public BigDecimal getPurchasePrice() { return purchasePrice; }
+    public void setPurchasePrice(BigDecimal purchasePrice) { this.purchasePrice = purchasePrice; }
     public boolean isBase() { return isBase; }
     public void setBase(boolean base) { isBase = base; }
 }

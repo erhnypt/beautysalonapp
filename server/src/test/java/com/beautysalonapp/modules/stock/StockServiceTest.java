@@ -27,7 +27,7 @@ class StockServiceTest {
 
     private Item newItem() {
         return stock.createItem(null, "Şampuan " + System.nanoTime(), ItemType.EMTIA, "ADET",
-                new BigDecimal("20"), null, "MarkaX", new BigDecimal("120"));
+                new BigDecimal("20"), null, "MarkaX", new BigDecimal("120"), new BigDecimal("80"));
     }
 
     private long depo() {
@@ -35,9 +35,27 @@ class StockServiceTest {
     }
 
     @Test
+    void urun_olusturulurken_alis_satis_fiyati_kaydedilir() {
+        Item it = newItem();
+        var base = stock.unitsOf(it.getId()).get(0);
+        assertThat(base.getSalePrice()).isEqualByComparingTo("120");
+        assertThat(base.getPurchasePrice()).isEqualByComparingTo("80");
+    }
+
+    @Test
+    void fiyatlar_sonradan_guncellenebilir() {
+        Item it = newItem();
+        stock.updateBasePrices(it.getId(), new BigDecimal("150"), new BigDecimal("90"));
+
+        var base = stock.unitsOf(it.getId()).get(0);
+        assertThat(base.getSalePrice()).isEqualByComparingTo("150");
+        assertThat(base.getPurchasePrice()).isEqualByComparingTo("90");
+    }
+
+    @Test
     void koli_birimi_capraz_donusum_1_koli_12_adet() {
         Item it = newItem();
-        stock.addUnit(it.getId(), "KOLI", new BigDecimal("12"), new BigDecimal("1300"));
+        stock.addUnit(it.getId(), "KOLI", new BigDecimal("12"), new BigDecimal("1300"), new BigDecimal("900"));
         stock.addBarcode(it.getId(), "869KOLI001", "KOLI", true);
         stock.addBarcode(it.getId(), "869ADET001", "ADET", false);
 
@@ -96,7 +114,7 @@ class StockServiceTest {
     @Test
     void hizmet_karti_stok_tutmaz() {
         Item svc = stock.createItem(null, "Cilt Bakımı", ItemType.HIZMET, "SEANS",
-                new BigDecimal("20"), null, null, new BigDecimal("500"));
+                new BigDecimal("20"), null, null, new BigDecimal("500"), null);
         long seans = stock.unitsOf(svc.getId()).get(0).getUnitId();
         assertThatThrownBy(() -> stock.record(LocalDate.now(), svc.getId(), depo(), MovementDirection.IN,
                 seans, BigDecimal.ONE, BigDecimal.TEN, "TEST", "D-1", "1", null))

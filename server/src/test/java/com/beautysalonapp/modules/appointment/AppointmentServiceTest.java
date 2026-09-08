@@ -135,7 +135,7 @@ class AppointmentServiceTest {
     void geldi_zinciri_recete_stogunu_sarf_eder() {
         // Stok: bir ürün, SARF deposuna 10 giriş
         var item = stock.createItem(null, "Maske Kremi " + System.nanoTime(), ItemType.EMTIA, "ADET",
-                new BigDecimal("20"), null, null, null);
+                new BigDecimal("20"), null, null, null, null);
         long adet = stock.unitsOf(item.getId()).get(0).getUnitId();
         long sarf = stockPort.consumptionWarehouseId();
         stock.record(LocalDate.now(), item.getId(), sarf, MovementDirection.IN, adet,

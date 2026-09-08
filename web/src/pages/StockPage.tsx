@@ -15,6 +15,8 @@ interface ItemRow {
   active: boolean;
   totalOnHand: number;
   reorderLevel: number | null;
+  salePrice: number | null;
+  purchasePrice: number | null;
 }
 interface Page<T> {
   content: T[];
@@ -32,6 +34,14 @@ interface LevelView {
 interface ItemDetail {
   item: ItemRow;
   levels: LevelView[];
+}
+
+const tl = (n: number) =>
+  new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(n);
+
+function profit(salePrice: number | null, purchasePrice: number | null) {
+  if (salePrice == null || purchasePrice == null) return null;
+  return salePrice - purchasePrice;
 }
 
 export function StockPage() {
@@ -72,7 +82,7 @@ export function StockPage() {
       {items.error && <div className="text-red-600">{(items.error as ApiError).message}</div>}
 
       {items.data && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>
@@ -82,38 +92,57 @@ export function StockPage() {
                 <th className="px-4 py-2 font-medium">Marka</th>
                 <th className="px-4 py-2 text-right font-medium">KDV %</th>
                 <th className="px-4 py-2 text-right font-medium">Toplam Stok</th>
+                <th className="px-4 py-2 text-right font-medium">Alış Fiyatı</th>
+                <th className="px-4 py-2 text-right font-medium">Satış Fiyatı</th>
+                <th className="px-4 py-2 text-right font-medium">Kâr</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {items.data.content.map((i) => (
-                <tr
-                  key={i.id}
-                  className={`cursor-pointer hover:bg-slate-50 ${i.active ? "" : "opacity-50"}`}
-                  onClick={() => setOpenId(openId === i.id ? null : i.id)}
-                >
-                  <td className="px-4 py-2 font-mono text-xs">{i.code}</td>
-                  <td className="px-4 py-2 font-medium">{i.name}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-xs ${
-                        i.type === "HIZMET"
-                          ? "bg-violet-100 text-violet-700"
-                          : "bg-sky-100 text-sky-700"
+              {items.data.content.map((i) => {
+                const kar = profit(i.salePrice, i.purchasePrice);
+                return (
+                  <tr
+                    key={i.id}
+                    className={`cursor-pointer hover:bg-slate-50 ${i.active ? "" : "opacity-50"}`}
+                    onClick={() => setOpenId(openId === i.id ? null : i.id)}
+                  >
+                    <td className="px-4 py-2 font-mono text-xs">{i.code}</td>
+                    <td className="px-4 py-2 font-medium">{i.name}</td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-xs ${
+                          i.type === "HIZMET"
+                            ? "bg-violet-100 text-violet-700"
+                            : "bg-sky-100 text-sky-700"
+                        }`}
+                      >
+                        {i.type === "HIZMET" ? "Hizmet" : "Ürün"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-slate-500">{i.brand ?? "—"}</td>
+                    <td className="px-4 py-2 text-right">{i.vatRate}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {i.type === "HIZMET" ? "—" : Number(i.totalOnHand).toLocaleString("tr-TR")}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums text-slate-500">
+                      {i.purchasePrice != null ? tl(i.purchasePrice) : "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {i.salePrice != null ? tl(i.salePrice) : "—"}
+                    </td>
+                    <td
+                      className={`px-4 py-2 text-right tabular-nums font-medium ${
+                        kar == null ? "text-slate-400" : kar >= 0 ? "text-green-700" : "text-red-700"
                       }`}
                     >
-                      {i.type === "HIZMET" ? "Hizmet" : "Ürün"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-slate-500">{i.brand ?? "—"}</td>
-                  <td className="px-4 py-2 text-right">{i.vatRate}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">
-                    {i.type === "HIZMET" ? "—" : Number(i.totalOnHand).toLocaleString("tr-TR")}
-                  </td>
-                </tr>
-              ))}
+                      {kar != null ? tl(kar) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
               {items.data.content.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-6 text-center text-slate-400">
                     {t.common.noRecords}
                   </td>
                 </tr>
@@ -133,6 +162,8 @@ function ItemDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
   const qc = useQueryClient();
   const canEdit = has("STOCK_EDIT");
   const [reorderLevel, setReorderLevel] = useState("");
+  const [salePrice, setSalePrice] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
   const { data } = useQuery({
@@ -153,12 +184,40 @@ function ItemDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
     onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
   });
 
+  const savePrices = useMutation({
+    mutationFn: () =>
+      api(`/api/v1/stock/items/${id}/prices`, {
+        method: "POST",
+        body: {
+          // Boş bırakılan alan mevcut değerini korur — ikisi tek "Kaydet" ile
+          // gönderildiğinden, diğerini düzenlerken birini sıfırlamamak için.
+          salePrice: salePrice !== "" ? Number(salePrice) : (data?.item.salePrice ?? null),
+          purchasePrice: purchasePrice !== "" ? Number(purchasePrice) : (data?.item.purchasePrice ?? null),
+        },
+      }),
+    onSuccess: () => {
+      setSalePrice("");
+      setPurchasePrice("");
+      qc.invalidateQueries({ queryKey: ["stock-item", id] });
+      qc.invalidateQueries({ queryKey: ["stock-items"] });
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
   if (!data) return null;
+
+  const kar = profit(data.item.salePrice, data.item.purchasePrice);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setErr(null);
     save.mutate();
+  };
+
+  const submitPrices = (e: FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    savePrices.mutate();
   };
 
   return (
@@ -169,6 +228,23 @@ function ItemDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
           Kapat
         </button>
       </div>
+
+      <dl className="mb-4 grid grid-cols-3 gap-x-6 gap-y-2 text-sm">
+        <div>
+          <dt className="text-slate-500">Alış Fiyatı</dt>
+          <dd>{data.item.purchasePrice != null ? tl(data.item.purchasePrice) : "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Satış Fiyatı</dt>
+          <dd>{data.item.salePrice != null ? tl(data.item.salePrice) : "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Kâr</dt>
+          <dd className={kar == null ? "" : kar >= 0 ? "text-green-700" : "text-red-700"}>
+            {kar != null ? tl(kar) : "—"}
+          </dd>
+        </div>
+      </dl>
 
       <table className="w-full text-sm">
         <thead className="text-left text-slate-500">
@@ -197,21 +273,46 @@ function ItemDetailPanel({ id, onClose }: { id: number; onClose: () => void }) {
       </table>
 
       {canEdit && (
-        <form onSubmit={submit} className="mt-4 flex items-end gap-2 border-t border-slate-100 pt-3">
-          {err && <div className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
-          <div>
-            <label className="label">Yeniden Sipariş Seviyesi</label>
-            <input
-              className="input w-40"
-              placeholder={data.item.reorderLevel != null ? String(data.item.reorderLevel) : "—"}
-              value={reorderLevel}
-              onChange={(e) => setReorderLevel(e.target.value)}
-            />
-          </div>
-          <button className="btn-primary" disabled={save.isPending}>
-            {t.common.save}
-          </button>
-        </form>
+        <>
+          {err && <div className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+          <form onSubmit={submitPrices} className="mt-4 flex items-end gap-2 border-t border-slate-100 pt-3">
+            <div>
+              <label className="label">Alış Fiyatı</label>
+              <input
+                className="input w-32"
+                placeholder={data.item.purchasePrice != null ? String(data.item.purchasePrice) : "—"}
+                value={purchasePrice}
+                onChange={(e) => setPurchasePrice(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label">Satış Fiyatı</label>
+              <input
+                className="input w-32"
+                placeholder={data.item.salePrice != null ? String(data.item.salePrice) : "—"}
+                value={salePrice}
+                onChange={(e) => setSalePrice(e.target.value)}
+              />
+            </div>
+            <button className="btn-primary" disabled={savePrices.isPending}>
+              {t.common.save}
+            </button>
+          </form>
+          <form onSubmit={submit} className="mt-2 flex items-end gap-2">
+            <div>
+              <label className="label">Yeniden Sipariş Seviyesi</label>
+              <input
+                className="input w-40"
+                placeholder={data.item.reorderLevel != null ? String(data.item.reorderLevel) : "—"}
+                value={reorderLevel}
+                onChange={(e) => setReorderLevel(e.target.value)}
+              />
+            </div>
+            <button className="btn-primary" disabled={save.isPending}>
+              {t.common.save}
+            </button>
+          </form>
+        </>
       )}
     </div>
   );
@@ -225,6 +326,7 @@ function NewItemForm({ onClose }: { onClose: () => void }) {
   const [baseUnitCode, setBaseUnitCode] = useState("ADET");
   const [vatRate, setVatRate] = useState("20");
   const [salePrice, setSalePrice] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState("");
   const [brand, setBrand] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
@@ -239,6 +341,7 @@ function NewItemForm({ onClose }: { onClose: () => void }) {
           vatRate: Number(vatRate),
           brand: brand || null,
           salePrice: salePrice ? Number(salePrice) : null,
+          purchasePrice: purchasePrice ? Number(purchasePrice) : null,
         },
       }),
     onSuccess: () => {
@@ -295,6 +398,10 @@ function NewItemForm({ onClose }: { onClose: () => void }) {
       <div>
         <label className="label">KDV %</label>
         <input className="input" value={vatRate} onChange={(e) => setVatRate(e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Alış Fiyatı</label>
+        <input className="input" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} />
       </div>
       <div>
         <label className="label">Satış Fiyatı</label>

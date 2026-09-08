@@ -81,7 +81,7 @@ class EInvoiceServiceTest {
         long vendor = partyService.create(PartyType.SATICI, null, "Tedarikçi " + System.nanoTime(),
                 null, null, null, null, "1122334455", null).getId();
         long item = stock.createItem(null, "e-Fatura Test Ürünü " + System.nanoTime(), ItemType.EMTIA, "ADET",
-                new BigDecimal("20"), null, null, new BigDecimal("100")).getId();
+                new BigDecimal("20"), null, null, new BigDecimal("100"), null).getId();
         long depo = stockPort.defaultWarehouseId();
 
         Invoice alis = invoices.create(new CreateInvoiceCommand(InvoiceType.ALIS, LocalDate.now(), vendor, depo, null, null,

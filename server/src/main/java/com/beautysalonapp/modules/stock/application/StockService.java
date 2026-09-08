@@ -122,7 +122,8 @@ public class StockService implements StockPort {
     }
 
     public Item createItem(String code, String name, ItemType type, String baseUnitCode,
-                           BigDecimal vatRate, Long categoryId, String brand, BigDecimal salePrice) {
+                           BigDecimal vatRate, Long categoryId, String brand, BigDecimal salePrice,
+                           BigDecimal purchasePrice) {
         Unit baseUnit = units.findByBranchIdAndCode(BRANCH, baseUnitCode.toUpperCase())
                 .orElseThrow(() -> new NotFoundException("Birim: " + baseUnitCode));
         String finalCode = (code == null || code.isBlank())
@@ -140,6 +141,7 @@ public class StockService implements StockPort {
         // Base birim satırı (factor 1)
         ItemUnit iu = new ItemUnit(item.getId(), baseUnit.getId(), BigDecimal.ONE, true);
         iu.setSalePrice(salePrice);
+        iu.setPurchasePrice(purchasePrice);
         itemUnits.save(iu);
 
         audit.record("ITEM_CREATE", "Item", item.getId(), "Ürün/hizmet kartı: " + item.getCode() + " " + item.getName());
@@ -155,7 +157,20 @@ public class StockService implements StockPort {
         return item;
     }
 
-    public ItemUnit addUnit(long itemId, String unitCode, BigDecimal factor, BigDecimal salePrice) {
+    /** Kar marjı gösterimi için satış/alış fiyatı — ürünün ana biriminde tutulur. */
+    public ItemUnit updateBasePrices(long itemId, BigDecimal salePrice, BigDecimal purchasePrice) {
+        getItem(itemId);
+        ItemUnit base = itemUnits.findByItemIdAndIsBaseTrue(itemId)
+                .orElseThrow(() -> new NotFoundException("Ürünün ana birimi", itemId));
+        base.setSalePrice(salePrice);
+        base.setPurchasePrice(purchasePrice);
+        audit.record("ITEM_PRICES", "Item", itemId,
+                "Fiyatlar güncellendi: satış=" + salePrice + " alış=" + purchasePrice);
+        return base;
+    }
+
+    public ItemUnit addUnit(long itemId, String unitCode, BigDecimal factor, BigDecimal salePrice,
+                            BigDecimal purchasePrice) {
         Item item = getItem(itemId);
         Unit unit = units.findByBranchIdAndCode(BRANCH, unitCode.toUpperCase())
                 .orElseThrow(() -> new NotFoundException("Birim: " + unitCode));
@@ -167,6 +182,7 @@ public class StockService implements StockPort {
         }
         ItemUnit iu = new ItemUnit(item.getId(), unit.getId(), factor, false);
         iu.setSalePrice(salePrice);
+        iu.setPurchasePrice(purchasePrice);
         return itemUnits.save(iu);
     }
 
