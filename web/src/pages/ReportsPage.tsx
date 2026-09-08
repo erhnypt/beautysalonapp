@@ -74,7 +74,7 @@ function ReportPicker({
 
 interface StockStatusRow {
   itemId: number; itemCode: string; itemName: string;
-  warehouseCode: string; warehouseType: string; qtyBase: number; avgCost: number; stockValue: number;
+  warehouseCode: string; warehouseType: string; qtyBase: number; avgCost: number; value: number;
 }
 interface MovementRow {
   id: number; date: string; itemCode: string; itemName: string; warehouseCode: string;
@@ -136,7 +136,7 @@ function StockStatusReport() {
     { key: "warehouseCode", label: "Depo" },
     { key: "qtyBase", label: "Miktar", align: "right" },
     { key: "avgCost", label: "Ort. Maliyet", align: "right", render: (r) => tl(r.avgCost) },
-    { key: "stockValue", label: "Değer", align: "right", render: (r) => tl(r.stockValue) },
+    { key: "value", label: "Değer", align: "right", render: (r) => tl(r.value) },
   ];
   if (isLoading) return <div className="text-slate-500">{t.common.loading}</div>;
   return <DataTable columns={columns} rows={data ?? []} keyFn={(r) => `${r.itemId}-${r.warehouseCode}`} />;
