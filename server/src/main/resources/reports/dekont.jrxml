@@ -30,14 +30,14 @@
             <staticText>
                 <reportElement x="0" y="0" width="278" height="24"/>
                 <textElement textAlignment="Center">
-                    <font size="14" isBold="true"/>
+                    <font size="14" isBold="true" pdfEncoding="Cp1254"/>
                 </textElement>
                 <text><![CDATA[DEKONT]]></text>
             </staticText>
             <textField>
                 <reportElement x="0" y="26" width="278" height="18"/>
                 <textElement textAlignment="Center">
-                    <font size="11" isBold="true"/>
+                    <font size="11" isBold="true" pdfEncoding="Cp1254"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{isletmeAdi}]]></textFieldExpression>
             </textField>
@@ -46,12 +46,12 @@
             </line>
             <textField>
                 <reportElement x="0" y="54" width="140" height="16"/>
-                <textElement><font size="9"/></textElement>
+                <textElement><font size="9" pdfEncoding="Cp1254"/></textElement>
                 <textFieldExpression><![CDATA["Dekont No: " + $P{dekontNo}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="140" y="54" width="138" height="16"/>
-                <textElement textAlignment="Right"><font size="9"/></textElement>
+                <textElement textAlignment="Right"><font size="9" pdfEncoding="Cp1254"/></textElement>
                 <textFieldExpression><![CDATA["Tarih: " + $P{tarih}]]></textFieldExpression>
             </textField>
         </band>
@@ -61,22 +61,22 @@
         <band height="150">
             <textField>
                 <reportElement x="0" y="0" width="278" height="18"/>
-                <textElement><font size="10" isBold="true"/></textElement>
+                <textElement><font size="10" isBold="true" pdfEncoding="Cp1254"/></textElement>
                 <textFieldExpression><![CDATA["İşlem Türü: " + $P{tur}]]></textFieldExpression>
             </textField>
             <textField>
                 <reportElement x="0" y="20" width="278" height="18"/>
-                <textElement><font size="10"/></textElement>
+                <textElement><font size="10" pdfEncoding="Cp1254"/></textElement>
                 <textFieldExpression><![CDATA["Hesap: " + $P{hesap}]]></textFieldExpression>
             </textField>
             <textField textAdjust="StretchHeight">
                 <reportElement x="0" y="40" width="278" height="18"/>
-                <textElement><font size="10"/></textElement>
+                <textElement><font size="10" pdfEncoding="Cp1254"/></textElement>
                 <textFieldExpression><![CDATA[$P{karsiTaraf} == null || $P{karsiTaraf}.isEmpty() ? "" : ("Karşı Taraf: " + $P{karsiTaraf})]]></textFieldExpression>
             </textField>
             <textField textAdjust="StretchHeight">
                 <reportElement x="0" y="60" width="278" height="36"/>
-                <textElement><font size="10"/></textElement>
+                <textElement><font size="10" pdfEncoding="Cp1254"/></textElement>
                 <textFieldExpression><![CDATA["Açıklama: " + $P{aciklama}]]></textFieldExpression>
             </textField>
             <line>
@@ -85,7 +85,7 @@
             <textField>
                 <reportElement x="0" y="104" width="278" height="26"/>
                 <textElement textAlignment="Center">
-                    <font size="16" isBold="true"/>
+                    <font size="16" isBold="true" pdfEncoding="Cp1254"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{tutar}]]></textFieldExpression>
             </textField>
@@ -97,7 +97,7 @@
             <textField textAdjust="StretchHeight">
                 <reportElement x="0" y="4" width="278" height="30"/>
                 <textElement textAlignment="Center">
-                    <font size="7" isItalic="true"/>
+                    <font size="7" isItalic="true" pdfEncoding="Cp1254"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{dipnot}]]></textFieldExpression>
             </textField>

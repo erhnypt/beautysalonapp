@@ -1,5 +1,6 @@
 package com.beautysalonapp.modules.contract.web;
 
+import com.beautysalonapp.modules.contract.application.ContractPdfService;
 import com.beautysalonapp.modules.contract.application.ContractService;
 import com.beautysalonapp.modules.contract.application.ContractService.CreateContractCommand;
 import com.beautysalonapp.modules.contract.application.ContractService.NewLine;
@@ -17,6 +18,10 @@ import jakarta.validation.constraints.Positive;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,9 +41,11 @@ import java.util.List;
 public class ContractController {
 
     private final ContractService service;
+    private final ContractPdfService pdf;
 
-    public ContractController(ContractService service) {
+    public ContractController(ContractService service, ContractPdfService pdf) {
         this.service = service;
+        this.pdf = pdf;
     }
 
     // --- DTO'lar ---
@@ -108,6 +115,18 @@ public class ContractController {
                 ContractView.of(c),
                 service.lines(id).stream().map(LineView::of).toList(),
                 service.installments(id).stream().map(InstallmentView::of).toList());
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> pdf(@PathVariable long id) {
+        SalesContract c = service.get(id);
+        byte[] bytes = pdf.renderContract(id);
+        String filename = "sozlesme-" + c.getDocNo() + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline().filename(filename).build().toString())
+                .body(bytes);
     }
 
     @PostMapping

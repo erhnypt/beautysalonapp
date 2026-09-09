@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  BeautySalonApp — Satış Sözleşmesi şablonu (plan §10.12: "Sözleşme PDF çıktısı
+  (imza alanlı)"). Bu dosya kurulumda <dataDir>/config/reports/sozlesme.jrxml
+  altına kopyalanır ve orada müşteriye özel biçimde DÜZENLENEBİLİR — uygulama
+  güncellemesi bu kopyanın üzerine yazmaz (bkz. ContractPdfService).
+
+  Türkçe karakter desteği: PDF dışa aktarımında iText'in varsayılan Cp1252
+  (Batı Avrupa) kod sayfası ş/ğ/ı/İ karakterlerini SESSİZCE düşürür. Her
+  <font> etiketinde pdfEncoding="Cp1254" (Windows Türkçe) zorunlu — kaldırmayın.
+-->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="sozlesme" pageWidth="595" pageHeight="842" columnWidth="515"
+              leftMargin="40" rightMargin="40" topMargin="36" bottomMargin="36"
+              uuid="3a7c1e9d-5b2f-4c6a-8d1e-9f0a2b3c4d5e">
+
+    <parameter name="isletmeAdi" class="java.lang.String"/>
+    <parameter name="sozlesmeNo" class="java.lang.String"/>
+    <parameter name="tarih" class="java.lang.String"/>
+    <parameter name="musteri" class="java.lang.String"/>
+    <parameter name="kalemler" class="java.lang.String"/>
+    <parameter name="toplamTutar" class="java.lang.String"/>
+    <parameter name="pesinat" class="java.lang.String"/>
+    <parameter name="taksitSayisi" class="java.lang.String"/>
+    <parameter name="taksitPlani" class="java.lang.String"/>
+    <parameter name="notlar" class="java.lang.String"/>
+    <parameter name="dipnot" class="java.lang.String"/>
+
+    <title>
+        <band height="110">
+            <staticText>
+                <reportElement x="0" y="0" width="515" height="26"/>
+                <textElement textAlignment="Center">
+                    <font size="16" isBold="true" pdfEncoding="Cp1254"/>
+                </textElement>
+                <text><![CDATA[SATIŞ SÖZLEŞMESİ]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="28" width="515" height="20"/>
+                <textElement textAlignment="Center">
+                    <font size="12" isBold="true" pdfEncoding="Cp1254"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{isletmeAdi}]]></textFieldExpression>
+            </textField>
+            <line>
+                <reportElement x="0" y="54" width="515" height="1"/>
+            </line>
+            <textField>
+                <reportElement x="0" y="60" width="257" height="18"/>
+                <textElement><font size="10" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA["Sözleşme No: " + $P{sozlesmeNo}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="257" y="60" width="258" height="18"/>
+                <textElement textAlignment="Right"><font size="10" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA["Tarih: " + $P{tarih}]]></textFieldExpression>
+            </textField>
+            <textField textAdjust="StretchHeight">
+                <reportElement x="0" y="80" width="515" height="18"/>
+                <textElement><font size="10" isBold="true" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA["Müşteri: " + $P{musteri}]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <detail>
+        <band height="680" splitType="Stretch">
+            <staticText>
+                <reportElement x="0" y="0" width="515" height="16"/>
+                <textElement><font size="10" isBold="true" isUnderline="true" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Hizmet / Ürün Kalemleri]]></text>
+            </staticText>
+            <textField textAdjust="StretchHeight">
+                <reportElement x="0" y="18" width="515" height="24"/>
+                <textElement><font size="9" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA[$P{kalemler}]]></textFieldExpression>
+            </textField>
+
+            <staticText>
+                <reportElement positionType="Float" x="0" y="46" width="171" height="14"/>
+                <textElement><font size="9" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Toplam Tutar]]></text>
+            </staticText>
+            <textField>
+                <reportElement positionType="Float" x="0" y="60" width="171" height="18"/>
+                <textElement><font size="12" isBold="true" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA[$P{toplamTutar}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement positionType="Float" x="172" y="46" width="171" height="14"/>
+                <textElement><font size="9" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Peşinat]]></text>
+            </staticText>
+            <textField>
+                <reportElement positionType="Float" x="172" y="60" width="171" height="18"/>
+                <textElement><font size="12" isBold="true" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA[$P{pesinat}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement positionType="Float" x="344" y="46" width="171" height="14"/>
+                <textElement><font size="9" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Taksit Sayısı]]></text>
+            </staticText>
+            <textField>
+                <reportElement positionType="Float" x="344" y="60" width="171" height="18"/>
+                <textElement><font size="12" isBold="true" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA[$P{taksitSayisi}]]></textFieldExpression>
+            </textField>
+
+            <line>
+                <reportElement positionType="Float" x="0" y="84" width="515" height="1"/>
+            </line>
+            <staticText>
+                <reportElement positionType="Float" x="0" y="90" width="515" height="16"/>
+                <textElement><font size="10" isBold="true" isUnderline="true" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Taksit Planı]]></text>
+            </staticText>
+            <textField textAdjust="StretchHeight">
+                <reportElement positionType="Float" x="0" y="108" width="515" height="24"/>
+                <textElement><font size="9" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA[$P{taksitPlani}]]></textFieldExpression>
+            </textField>
+
+            <staticText>
+                <reportElement positionType="Float" x="0" y="136" width="515" height="16"/>
+                <textElement><font size="10" isBold="true" isUnderline="true" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Notlar]]></text>
+            </staticText>
+            <textField textAdjust="StretchHeight">
+                <reportElement positionType="Float" x="0" y="154" width="515" height="16"/>
+                <textElement><font size="9" pdfEncoding="Cp1254"/></textElement>
+                <textFieldExpression><![CDATA[$P{notlar}.isEmpty() ? "—" : $P{notlar}]]></textFieldExpression>
+            </textField>
+
+            <line>
+                <reportElement positionType="Float" x="0" y="182" width="515" height="1"/>
+            </line>
+            <staticText>
+                <reportElement positionType="Float" x="0" y="188" width="515" height="28"/>
+                <textElement textAlignment="Justified">
+                    <font size="8" pdfEncoding="Cp1254"/>
+                </textElement>
+                <text><![CDATA[Taraflar, işbu sözleşme ile belirtilen hizmet/ürün kalemlerini, toplam tutarı, peşinatı ve taksit planını okuyup kabul ettiklerini beyan ve imza ederler.]]></text>
+            </staticText>
+
+            <line>
+                <reportElement positionType="Float" x="20" y="240" width="200" height="1"/>
+            </line>
+            <staticText>
+                <reportElement positionType="Float" x="20" y="244" width="200" height="16"/>
+                <textElement textAlignment="Center"><font size="9" isBold="true" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Müşteri (Ad Soyad / İmza)]]></text>
+            </staticText>
+            <staticText>
+                <reportElement positionType="Float" x="20" y="262" width="200" height="14"/>
+                <textElement textAlignment="Center"><font size="8" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Tarih: ......../......../..........]]></text>
+            </staticText>
+
+            <line>
+                <reportElement positionType="Float" x="295" y="240" width="200" height="1"/>
+            </line>
+            <staticText>
+                <reportElement positionType="Float" x="295" y="244" width="200" height="16"/>
+                <textElement textAlignment="Center"><font size="9" isBold="true" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[İşletme Yetkilisi (Ad Soyad / İmza)]]></text>
+            </staticText>
+            <staticText>
+                <reportElement positionType="Float" x="295" y="262" width="200" height="14"/>
+                <textElement textAlignment="Center"><font size="8" pdfEncoding="Cp1254"/></textElement>
+                <text><![CDATA[Tarih: ......../......../..........]]></text>
+            </staticText>
+        </band>
+    </detail>
+
+    <summary>
+        <band height="30">
+            <textField textAdjust="StretchHeight">
+                <reportElement x="0" y="4" width="515" height="20"/>
+                <textElement textAlignment="Center">
+                    <font size="7" isItalic="true" pdfEncoding="Cp1254"/>
+                </textElement>
+                <textFieldExpression><![CDATA[$P{dipnot}]]></textFieldExpression>
+            </textField>
+        </band>
+    </summary>
+
+</jasperReport>

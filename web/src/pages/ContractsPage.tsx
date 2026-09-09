@@ -148,6 +148,14 @@ function ContractDetailPanel({ id, onClose }: { id: number; onClose: () => void 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-semibold">{data.contract.docNo} — Taksit Planı</h2>
         <div className="flex items-center gap-3">
+          <a
+            className="text-sm text-brand-700 hover:underline"
+            href={`/api/v1/contracts/${id}/pdf`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Sözleşme (PDF)
+          </a>
           {has("CONTRACT_EDIT") && data.contract.status === "ACTIVE" && hasOpenInstallments && (
             <button className="text-sm text-brand-700 hover:underline" onClick={() => setShowRestructure((v) => !v)}>
               Yeniden Yapılandır
