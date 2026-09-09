@@ -1,10 +1,13 @@
 package com.beautysalonapp.security.application;
 
+import com.beautysalonapp.audit.application.AuditService;
 import com.beautysalonapp.core.error.BusinessRuleException;
 import com.beautysalonapp.core.error.NotFoundException;
 import com.beautysalonapp.security.domain.AppUser;
+import com.beautysalonapp.security.domain.Permission;
 import com.beautysalonapp.security.domain.Role;
 import com.beautysalonapp.security.domain.RoleName;
+import com.beautysalonapp.security.domain.RolePermissionCatalog;
 import com.beautysalonapp.security.infrastructure.AppUserRepository;
 import com.beautysalonapp.security.infrastructure.RoleRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,11 +29,14 @@ public class UserService {
     private final AppUserRepository users;
     private final RoleRepository roles;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService audit;
 
-    public UserService(AppUserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder) {
+    public UserService(AppUserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder,
+                       AuditService audit) {
         this.users = users;
         this.roles = roles;
         this.passwordEncoder = passwordEncoder;
+        this.audit = audit;
     }
 
     @Transactional(readOnly = true)
@@ -57,6 +63,42 @@ public class UserService {
         AppUser u = get(id);
         u.setRoles(resolveRoles(roleNames));
         return u;
+    }
+
+    // --- rol / yetki yönetimi (§8.1) ------------------------------------
+
+    @Transactional(readOnly = true)
+    public List<Role> listRoles() {
+        return roles.findAll().stream()
+                .sorted((a, b) -> a.getName().name().compareTo(b.getName().name()))
+                .toList();
+    }
+
+    /**
+     * Bir rolün yetki kümesini günceller. ADMIN rolü hariç — yönetici yetkisi
+     * daima tamdır, aksi halde admin kendini ekranlardan kilitleyebilir (§8.1).
+     */
+    public Role updateRolePermissions(Long roleId, Set<Permission> permissions) {
+        Role r = roles.findById(roleId).orElseThrow(() -> new NotFoundException("Rol", roleId));
+        if (r.getName() == RoleName.ADMIN) {
+            throw new BusinessRuleException("admin_role_fixed", "Yönetici rolünün yetkileri değiştirilemez");
+        }
+        r.setPermissions(new java.util.HashSet<>(permissions));
+        audit.record("ROLE_PERMISSIONS", "Role", r.getId(),
+                "Rol yetkileri güncellendi: " + r.getName() + " → " + permissions.size() + " yetki");
+        return r;
+    }
+
+    /** Rolü fabrika (varsayılan) yetki kümesine döndürür. */
+    public Role resetRolePermissions(Long roleId) {
+        Role r = roles.findById(roleId).orElseThrow(() -> new NotFoundException("Rol", roleId));
+        if (r.getName() == RoleName.ADMIN) {
+            throw new BusinessRuleException("admin_role_fixed", "Yönetici rolünün yetkileri değiştirilemez");
+        }
+        r.setPermissions(new java.util.HashSet<>(RolePermissionCatalog.defaultsFor(r.getName())));
+        audit.record("ROLE_PERMISSIONS_RESET", "Role", r.getId(),
+                "Rol yetkileri fabrika ayarına döndürüldü: " + r.getName());
+        return r;
     }
 
     public AppUser setEnabled(Long id, boolean enabled) {
