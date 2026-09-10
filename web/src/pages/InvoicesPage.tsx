@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { Fragment, FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { api, ApiError } from "../lib/api";
@@ -50,6 +50,7 @@ const chip: Record<string, string> = {
 export function InvoicesPage() {
   const { has } = useAuth();
   const [showForm, setShowForm] = useState(false);
+  const [voidingId, setVoidingId] = useState<number | null>(null);
   const list = useQuery({
     queryKey: ["invoices"],
     queryFn: () => api<Page<InvoiceView>>("/api/v1/invoices?size=100"),
@@ -80,36 +81,58 @@ export function InvoicesPage() {
                 <th className="px-4 py-2 text-right font-medium">Tutar</th>
                 <th className="px-4 py-2 font-medium">Durum</th>
                 <th className="px-4 py-2 font-medium">e-Fatura</th>
+                <th className="px-4 py-2 font-medium">İşlem</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {list.data.content.map((i) => (
-                <tr key={i.id}>
-                  <td className="px-4 py-2 font-mono text-xs">{i.docNo}</td>
-                  <td className="px-4 py-2">{i.type}</td>
-                  <td className="px-4 py-2">{new Date(i.date).toLocaleDateString("tr-TR")}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{tl(i.grandTotal)}</td>
-                  <td className="px-4 py-2">
-                    <span className={`rounded px-1.5 py-0.5 text-xs ${chip[i.status]}`}>{i.status}</span>
-                  </td>
-                  <td className="px-4 py-2">
-                    {has("INVOICE_EDIT") && i.status !== "VOIDED" && E_INVOICE_ELIGIBLE.includes(i.type) ? (
-                      <a
-                        href={`/api/v1/invoices/${i.id}/e-fatura`}
-                        className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline"
-                        title="UBL-TR XML indir (hazırlık — otomatik gönderim yapılmaz)"
-                      >
-                        <Download size={14} /> XML
-                      </a>
-                    ) : (
-                      <span className="text-xs text-slate-300">—</span>
-                    )}
-                  </td>
-                </tr>
+                <Fragment key={i.id}>
+                  <tr>
+                    <td className="px-4 py-2 font-mono text-xs">{i.docNo}</td>
+                    <td className="px-4 py-2">{i.type}</td>
+                    <td className="px-4 py-2">{new Date(i.date).toLocaleDateString("tr-TR")}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{tl(i.grandTotal)}</td>
+                    <td className="px-4 py-2">
+                      <span className={`rounded px-1.5 py-0.5 text-xs ${chip[i.status]}`}>{i.status}</span>
+                    </td>
+                    <td className="px-4 py-2">
+                      {has("INVOICE_EDIT") && i.status !== "VOIDED" && E_INVOICE_ELIGIBLE.includes(i.type) ? (
+                        <a
+                          href={`/api/v1/invoices/${i.id}/e-fatura`}
+                          className="inline-flex items-center gap-1 text-xs text-brand-700 hover:underline"
+                          title="UBL-TR XML indir (hazırlık — otomatik gönderim yapılmaz)"
+                        >
+                          <Download size={14} /> XML
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {has("INVOICE_VOID") && i.status === "CONFIRMED" ? (
+                        <button
+                          className="text-xs text-red-700 hover:underline"
+                          onClick={() => setVoidingId(voidingId === i.id ? null : i.id)}
+                        >
+                          {voidingId === i.id ? t.common.cancel : "İptal Et"}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-300">—</span>
+                      )}
+                    </td>
+                  </tr>
+                  {voidingId === i.id && (
+                    <tr>
+                      <td colSpan={7} className="bg-slate-50 px-4 py-3">
+                        <VoidInvoiceForm id={i.id} docNo={i.docNo} onClose={() => setVoidingId(null)} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
               {list.data.content.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
                     {t.common.noRecords}
                   </td>
                 </tr>
@@ -118,6 +141,52 @@ export function InvoicesPage() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function VoidInvoiceForm({ id, docNo, onClose }: { id: number; docNo: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const voidInv = useMutation({
+    mutationFn: () => api(`/api/v1/invoices/${id}/void`, { method: "POST", body: { reason } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      qc.invalidateQueries({ queryKey: ["fin-accounts"] });
+      onClose();
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  return (
+    <div className="flex flex-wrap items-end gap-3">
+      {err && <div className="w-full rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <div className="min-w-64 flex-1">
+        <label className="label">
+          {docNo} faturası iptal edilecek — gerekçe <span className="text-red-500">*</span>
+        </label>
+        <input
+          className="input"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Örn. yanlış cariye kesildi"
+        />
+      </div>
+      <button
+        className="rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+        disabled={voidInv.isPending || !reason.trim()}
+        onClick={() => {
+          setErr(null);
+          voidInv.mutate();
+        }}
+      >
+        İptal Et (ters kayıt)
+      </button>
+      <button type="button" className="btn-ghost" onClick={onClose}>
+        {t.common.cancel}
+      </button>
     </div>
   );
 }
