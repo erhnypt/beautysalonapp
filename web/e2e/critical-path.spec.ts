@@ -84,7 +84,7 @@ test.describe.serial("kritik akış", () => {
     // cari (müşteri) oluşturma: form → POST /api/v1/parties → liste yenilenir
     await page.getByRole("link", { name: "Cari Hesaplar", exact: true }).click();
     const musteriAdi = `E2E Müşteri ${Date.now()}`;
-    await page.getByRole("button", { name: "Ekle" }).click();
+    await page.getByRole("button", { name: "Ekle", exact: true }).click();
     const form = page.locator('form:has-text("Ünvan / Ad Soyad")');
     await form.locator("input.input").nth(0).fill(musteriAdi);
     await form.locator("input.input").nth(1).fill("5551234567");
@@ -125,7 +125,7 @@ test.describe.serial("kritik akış", () => {
     // --- randevu oluştur (UI) ---
     await page.getByRole("link", { name: "Randevular", exact: true }).click();
     await expect(page).toHaveURL(/\/randevular$/);
-    await page.getByRole("button", { name: "Ekle" }).click();
+    await page.getByRole("button", { name: "Ekle", exact: true }).click();
     const f = page.locator("form.card");
     await f.locator("select").nth(0).selectOption({ label: musteriTitle }); // Müşteri
     await f.locator("select").nth(1).selectOption({ label: staffTitle }); // Personel
