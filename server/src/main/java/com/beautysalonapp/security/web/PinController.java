@@ -51,8 +51,15 @@ public class PinController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * {@code PIN_LOCKED} de kabul edilir (yalnızca {@code PIN_VERIFICATION_REQUIRED} değil):
+     * kilitliyken oturum açan bir kullanıcının session'ı doğrudan {@code PIN_LOCKED} yetkisiyle
+     * kurulur ({@link AppUserDetailsService#pinGateAuthority}) — bu uç nokta yalnızca
+     * {@code PIN_VERIFICATION_REQUIRED} isteseydi böyle bir oturum hiçbir zaman buraya
+     * ulaşamaz, kilit süresi dolsa bile sonsuza dek 403 alır (regresyon testi: bkz. PinAuthTest).
+     */
     @PostMapping("/verify")
-    @PreAuthorize("hasAuthority('" + PinPolicy.PIN_VERIFICATION_REQUIRED + "')")
+    @PreAuthorize("hasAnyAuthority('" + PinPolicy.PIN_VERIFICATION_REQUIRED + "', '" + PinPolicy.PIN_LOCKED + "')")
     public ResponseEntity<Void> verify(@Valid @RequestBody PinRequest req, Authentication auth,
                                        HttpServletRequest request, HttpServletResponse response) {
         boolean ok = userService.verifyPin(auth.getName(), req.pin());

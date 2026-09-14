@@ -92,11 +92,35 @@ function PinSetupForm() {
 }
 
 function PinVerifyForm() {
-  const { refresh, logout } = useAuth();
+  const { user, refresh, logout } = useAuth();
   const navigate = useNavigate();
   const [pin, setPin] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const signOut = async () => {
+    await logout();
+    navigate("/login");
+  };
+
+  // Sunucu bu oturumu zaten PIN_LOCKED yetkisiyle kurduysa (kilitliyken yeniden giriş
+  // yapıldığında) kullanıcıyı boş yere bir PIN girip 423 almaya zorlamadan doğrudan
+  // kilit mesajını gösteriyoruz — çıkış dışında yapılacak bir şey yok.
+  if (user?.pinLockedUntil) {
+    return (
+      <div className="flex h-full items-center justify-center bg-slate-100 p-4">
+        <div className="card w-full max-w-sm space-y-4">
+          <h2 className="text-base font-semibold">{t.auth.pinLockedTitle}</h2>
+          <p className="text-sm text-amber-700">
+            {t.auth.pinLockedUntil(new Date(user.pinLockedUntil).toLocaleString("tr-TR"))}
+          </p>
+          <button className="btn-primary w-full" onClick={signOut}>
+            {t.auth.signOut}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

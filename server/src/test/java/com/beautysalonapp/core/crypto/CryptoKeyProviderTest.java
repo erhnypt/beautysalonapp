@@ -5,9 +5,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
+import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Set;
 
@@ -73,5 +75,43 @@ class CryptoKeyProviderTest {
 
         assertThatThrownBy(() -> CryptoKeyProvider.resolveKey(props(dir, "")))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    /**
+     * Regresyon: var olan bir kurulumda (H2 veritabanı dosyası zaten var) anahtar dosyası
+     * yoksa RASTGELE bir anahtar üretilmemeli — önceki sürümlerin kurulum kimliğinden
+     * türettiği anahtarla aynı değer üretilip dosyaya taşınmalı, aksi halde önceden
+     * şifrelenmiş her alan (TC, telefon, IBAN...) kalıcı olarak çözülemez hâle gelir.
+     */
+    @Test
+    void var_olan_kurulumda_anahtar_dosyasi_yoksa_kurulum_kimliginden_turetilir(@TempDir Path dir) throws Exception {
+        Path dataDir = Files.createDirectories(dir.resolve("data"));
+        Files.writeString(dataDir.resolve("beautysalonapp.mv.db"), "h2-dummy");
+
+        SecretKeySpec key = CryptoKeyProvider.resolveKey(props(dir, ""));
+
+        byte[] expected = MessageDigest.getInstance("SHA-256")
+                .digest("test-install-id|field-crypto|v1".getBytes(StandardCharsets.UTF_8));
+        assertThat(key.getEncoded()).containsExactly(expected);
+        assertThat(Files.exists(dir.resolve("config").resolve("field-crypto.key"))).isTrue();
+    }
+
+    @Test
+    void veri_dizini_bossa_yeni_kurulum_sayilir_rastgele_anahtar_uretilir(@TempDir Path dir) {
+        // data/ alt dizini hiç yok (bu testin diğerlerinden farkı: varlığı da kontrol ediyor).
+        assertThat(Files.exists(dir.resolve("data"))).isFalse();
+
+        SecretKeySpec key = CryptoKeyProvider.resolveKey(props(dir, ""));
+
+        byte[] installIdDerived = deriveViaSha256("test-install-id|field-crypto|v1");
+        assertThat(key.getEncoded()).isNotEqualTo(installIdDerived);
+    }
+
+    private static byte[] deriveViaSha256(String seed) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(seed.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

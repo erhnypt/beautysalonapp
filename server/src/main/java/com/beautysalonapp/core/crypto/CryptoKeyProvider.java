@@ -6,12 +6,17 @@ import org.slf4j.LoggerFactory;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -26,9 +31,15 @@ import java.util.Set;
  *       yml). Üretimde OS anahtar kasası (Windows DPAPI / macOS Keychain) anahtarı bu kanaldan
  *       enjekte eder; kod tarafında yapılacak bir şey yok.</li>
  *   <li><b>Anahtar dosyası</b> — {@code <dataDir>/config/field-crypto.key} (Base64, sahibe özel izin).
- *       İlk açılışta yoksa 32 baytlık <em>rastgele</em> anahtar üretilip buraya yazılır. Böylece
- *       varsayılan kurulumda bile anahtar tam entropili olur (eski "kurulum kimliğinden türet"
- *       deseninin tahmin edilebilirliği ortadan kalkar).</li>
+ *       Yoksa:
+ *       <ul>
+ *         <li><b>Var olan kurulum</b> (veri dizininde H2 veritabanı dosyası zaten varsa) — eski
+ *             sürümün anahtarı kurulum kimliğinden türettiği varsayılır; AYNI türetim yapılıp
+ *             sonucu dosyaya <em>taşınır</em>. Aksi halde daha önce şifrelenmiş alanlar (TC,
+ *             telefon, IBAN...) yeni rastgele bir anahtarla asla çözülemez hâle gelirdi.</li>
+ *         <li><b>Yepyeni kurulum</b> — 32 baytlık <em>rastgele</em> anahtar üretilip dosyaya yazılır;
+ *             tam entropili (eski "kurulum kimliğinden türet" deseninin tahmin edilebilirliği yok).</li>
+ *       </ul>
  *   <li><b>Son çare</b> — dosya yazılamıyorsa (salt-okunur dosya sistemi) kurulum kimliğinden
  *       türetim + <b>UYARI</b>. Yalnızca geliştirme; üretimde 1. veya 2. yol kullanılmalı.</li>
  * </ol>
@@ -58,22 +69,50 @@ final class CryptoKeyProvider {
             if (Files.exists(keyFile)) {
                 return readKeyFile(keyFile);
             }
-            byte[] fresh = new byte[KEY_BYTES];
-            new SecureRandom().nextBytes(fresh);
+
+            byte[] keyBytes;
+            if (hasExistingDatabase(props.getDataDir())) {
+                // Yükseltme senaryosu: bu veri dizini daha önce çalışmış. Önceki sürümlerde
+                // (bu dosya hiç yoktu) anahtar her açılışta kurulum kimliğinden türetiliyordu —
+                // yeni rastgele bir anahtar üretmek, o eski anahtarla şifrelenmiş her alanı
+                // (TC, telefon, IBAN...) kalıcı olarak çözülemez yapardı. Aynı türetimi bir kez
+                // yapıp sonucu dosyaya taşıyoruz; bundan sonra dosyadan okunur.
+                keyBytes = deriveFromInstallId(props.getInstallId()).getEncoded();
+                log.warn("Var olan bir kurulum tespit edildi (veri dizininde veritabanı dosyası var) — "
+                        + "uyumluluk için anahtar kurulum kimliğinden türetilip {} dosyasına taşındı.",
+                        keyFile);
+            } else {
+                keyBytes = new byte[KEY_BYTES];
+                new SecureRandom().nextBytes(keyBytes);
+            }
+
             try {
-                writeOwnerOnly(keyFile, Base64.getEncoder().encodeToString(fresh));
+                writeOwnerOnly(keyFile, Base64.getEncoder().encodeToString(keyBytes));
             } catch (FileAlreadyExistsException race) {
                 // Aynı anda başlayan ikinci örnek (AUTO_SERVER çok işlemli) dosyayı yeni yazdı.
                 return readKeyFile(keyFile);
             }
-            log.warn("Yeni alan şifreleme anahtarı üretildi ve yazıldı: {} — BU DOSYAYI GÜVENLİ ŞEKİLDE "
+            log.warn("Alan şifreleme anahtarı dosyası yazıldı: {} — BU DOSYAYI GÜVENLİ ŞEKİLDE "
                     + "YEDEKLEYİN; kaybolursa şifreli alanlar (TC, telefon, IBAN...) açılamaz.", keyFile);
-            return new SecretKeySpec(fresh, "AES");
+            return new SecretKeySpec(keyBytes, "AES");
         } catch (IOException e) {
             log.warn("Alan şifreleme anahtarı dosyası kullanılamadı ({}) — anahtar kurulum kimliğinden "
                     + "türetiliyor (YALNIZCA GELİŞTİRME; üretimde beautysalonapp.crypto.key-base64 verin).",
                     e.toString());
             return deriveFromInstallId(props.getInstallId());
+        }
+    }
+
+    /** {@code <dataDir>/data} altında bir H2 dosyası (*.mv.db) var mı — varsa kurulum daha önce çalışmış demektir. */
+    private static boolean hasExistingDatabase(String dataDir) {
+        Path dataSubdir = Path.of(dataDir, "data");
+        if (!Files.isDirectory(dataSubdir)) {
+            return false;
+        }
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dataSubdir, "*.mv.db")) {
+            return stream.iterator().hasNext();
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -90,16 +129,26 @@ final class CryptoKeyProvider {
         return new SecretKeySpec(raw, "AES");
     }
 
+    /**
+     * Dosyayı sahibe özel izinle ATOMİK olarak oluşturur (izin, oluşturma anında geçerli olur —
+     * "önce herkese açık yaz, sonra kısıtla" penceresi yok).
+     */
     private static void writeOwnerOnly(Path file, String contents) throws IOException {
         Files.createDirectories(file.getParent());
-        Files.writeString(file, contents, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        byte[] bytes = contents.getBytes(StandardCharsets.UTF_8);
+        Set<OpenOption> options = Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
         try {
             Set<PosixFilePermission> perms = EnumSet.of(
                     PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
-            Files.setPosixFilePermissions(file, perms);
+            FileAttribute<Set<PosixFilePermission>> attr = PosixFilePermissions.asFileAttribute(perms);
+            try (var channel = Files.newByteChannel(file, options, attr)) {
+                channel.write(ByteBuffer.wrap(bytes));
+            }
         } catch (UnsupportedOperationException windows) {
-            // Windows: POSIX izinleri yok. Veri dizini ACL sıkılaştırması paketleme adımıdır (I2).
+            // Windows: POSIX izin özniteliği yok. Veri dizini ACL sıkılaştırması paketleme adımıdır (I2).
+            try (var channel = Files.newByteChannel(file, options)) {
+                channel.write(ByteBuffer.wrap(bytes));
+            }
         }
     }
 

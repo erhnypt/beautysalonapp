@@ -107,6 +107,16 @@ class PinAuthTest {
 
         // Kilitli oturumla başka bir isteğe artık kimlik doğrulaması geçersiz.
         mvc.perform(get("/api/v1/auth/me").session(session)).andExpect(status().isUnauthorized());
+
+        // Regresyon: kilitliyken YENİDEN giriş yapan bir oturum PIN_LOCKED yetkisiyle kurulur;
+        // /pin/verify bunu da kabul etmeli (403 değil, 423 dönüp oturumu sonlandırmalı) —
+        // aksi halde kilit süresi dolsa bile bu oturum sonsuza dek 403 alır.
+        var relogin = loginAs("mudur.pin3", "Parola123!");
+        mvc.perform(get("/api/v1/auth/me").session(relogin))
+                .andExpect(jsonPath("$.pinVerificationRequired").value(true))
+                .andExpect(jsonPath("$.pinLockedUntil").exists());
+        mvc.perform(pinPost("/api/v1/auth/pin/verify", relogin, "1111")).andExpect(status().isLocked());
+        mvc.perform(get("/api/v1/auth/me").session(relogin)).andExpect(status().isUnauthorized());
     }
 
     @Test

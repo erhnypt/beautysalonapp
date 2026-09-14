@@ -101,6 +101,25 @@ class UserBranchAssignmentTest {
     }
 
     @Test
+    void atanmis_sube_sonradan_silinirse_basliksiz_istek_erisimi_reddeder() throws Exception {
+        // user_branch, branch'e FK ile bağlı değil (V18) — bir şube atandıktan sonra soft-delete
+        // edilebilir. Filtre, başlıksız istekte silinmiş şubeye sessizce düşmemeli.
+        String username = "branch.deleted." + System.nanoTime();
+        var user = userService.create(username, "Silinen Şube", "Parola123!", Set.of(RoleName.KASIYER));
+        long onlyBranch = freshBranch();
+        userService.assignBranches(user.getId(), Set.of(onlyBranch));
+
+        var session = loginAs(username, "Parola123!");
+        mvc.perform(get("/api/v1/auth/me").session(session)).andExpect(status().isOk());
+
+        branchService.delete(onlyBranch);
+
+        mvc.perform(get("/api/v1/auth/me").session(session))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("access_denied"));
+    }
+
+    @Test
     void dashboard_izin_disi_branchid_parametresiyle_403() throws Exception {
         // RAPOR_OKUYUCU: REPORTING_VIEW var, PIN gerektirmiyor (ADMIN/MUDUR değil) — akış sade kalır.
         String username = "branch.dash." + System.nanoTime();

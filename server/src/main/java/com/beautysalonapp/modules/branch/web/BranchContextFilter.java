@@ -72,7 +72,20 @@ public class BranchContextFilter extends OncePerRequestFilter {
                 // Kısıtlı kullanıcı başlık göndermedi (§B5): sessizce genel varsayılana
                 // (branch 1) düşmek yerine kendi atanmış şubelerinden birini kullan —
                 // aksi halde yeni kayıtları yanlış şubeye etiketleriz (veri bütünlüğü).
-                proceedWithBranch(allowed.stream().min(Long::compareTo).orElseThrow(), request, response, chain);
+                // Atanmış şube sonradan silinmiş olabilir (user_branch, branch'e FK ile
+                // bağlı değil) — header yolundaki aynı geçerlilik kontrolünü burada da
+                // uyguluyoruz, aksi halde silinmiş bir şubeye sessizce yazılabilirdi.
+                Long fallback = allowed.stream()
+                        .sorted()
+                        .filter(id -> branches.findById(id).filter(b -> !b.isDeleted()).isPresent())
+                        .findFirst()
+                        .orElse(null);
+                if (fallback == null) {
+                    writeError(response, path, HttpStatus.FORBIDDEN, "access_denied",
+                            "Atanmış şube(ler) artık geçerli değil; yöneticinize başvurun.");
+                    return;
+                }
+                proceedWithBranch(fallback, request, response, chain);
                 return;
             }
             chain.doFilter(request, response);

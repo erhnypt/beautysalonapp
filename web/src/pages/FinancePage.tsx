@@ -424,7 +424,7 @@ function FxForm({
               liveRate.mutate();
             }}
           >
-            {liveRate.isPending ? "Alınıyor…" : "Canlı kur"}
+            {liveRate.isPending ? t.finance.fetchingLiveRate : t.finance.fetchLiveRate}
           </button>
         </div>
         <input className="input" value={rate} onChange={(e) => setRate(e.target.value)} />

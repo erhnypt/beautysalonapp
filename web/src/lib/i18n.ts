@@ -53,6 +53,8 @@ export const t = {
     pinVerifySubmit: "Doğrula",
     pinWrong: "PIN hatalı.",
     pinLocked: "Çok sayıda hatalı deneme nedeniyle oturum sonlandırıldı. Lütfen tekrar giriş yapın.",
+    pinLockedTitle: "PIN Geçici Olarak Kilitli",
+    pinLockedUntil: (when: string) => `Çok sayıda hatalı deneme nedeniyle PIN kilitlendi. ${when} itibarıyla tekrar deneyebilirsiniz.`,
   },
 
   license: {
@@ -124,6 +126,10 @@ export const t = {
     comingSoon: "Bu modül geliştirme aşamasında.",
     noReportingAccess:
       "Günlük mali özeti görüntülemek için raporlama yetkiniz bulunmuyor. Yetki için yöneticinize başvurun.",
+  },
+  finance: {
+    fetchLiveRate: "Canlı kur",
+    fetchingLiveRate: "Alınıyor…",
   },
 } as const;
 
