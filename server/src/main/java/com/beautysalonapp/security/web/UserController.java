@@ -86,4 +86,15 @@ public class UserController {
     public void resetPassword(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest req) {
         userService.resetPassword(id, req.newPassword());
     }
+
+    /**
+     * "PIN'imi unuttum" kurtarma yolu (§A7): kullanıcının PIN'ini kaldırır; bir sonraki
+     * girişte yeniden PIN kurması istenir. En az bir başka etkin yönetici olduğu için
+     * (last_admin kuralı) her zaman erişilebilir bir kurtarma yolu vardır.
+     */
+    @PutMapping("/{id}/pin")
+    @PreAuthorize("hasAuthority('USER_EDIT')")
+    public void clearPin(@PathVariable Long id) {
+        userService.clearPin(id);
+    }
 }

@@ -43,9 +43,15 @@ public class AppUser extends BaseEntity {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
-    /** Kritik roller için opsiyonel PIN (2. faktör) — BCrypt karması. */
+    /** Kritik roller için PIN (2. faktör) — BCrypt karması. {@code null} = henüz kurulmamış. */
     @Column(name = "pin_hash", length = 100)
     private String pinHash;
+
+    @Column(name = "pin_failed_count", nullable = false)
+    private int pinFailedCount = 0;
+
+    @Column(name = "pin_locked_until")
+    private Instant pinLockedUntil;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_role",
@@ -66,6 +72,10 @@ public class AppUser extends BaseEntity {
         return lockedUntil != null && lockedUntil.isAfter(Instant.now());
     }
 
+    public boolean isPinLocked() {
+        return pinLockedUntil != null && pinLockedUntil.isAfter(Instant.now());
+    }
+
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
     public String getFullName() { return fullName; }
@@ -84,6 +94,10 @@ public class AppUser extends BaseEntity {
     public void setLastLoginAt(Instant lastLoginAt) { this.lastLoginAt = lastLoginAt; }
     public String getPinHash() { return pinHash; }
     public void setPinHash(String pinHash) { this.pinHash = pinHash; }
+    public int getPinFailedCount() { return pinFailedCount; }
+    public void setPinFailedCount(int pinFailedCount) { this.pinFailedCount = pinFailedCount; }
+    public Instant getPinLockedUntil() { return pinLockedUntil; }
+    public void setPinLockedUntil(Instant pinLockedUntil) { this.pinLockedUntil = pinLockedUntil; }
     public Set<Role> getRoles() { return roles; }
     public void setRoles(Set<Role> roles) { this.roles = roles; }
 }

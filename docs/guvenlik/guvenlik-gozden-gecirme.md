@@ -20,7 +20,7 @@
 | A4 | Oturum sabitleme koruması | ✅ | `AuthController.login` → `request.changeSessionId()` |
 | A5 | Oturum çerezi `HttpOnly` | ✅ | Servlet konteyner varsayılanı + `server.servlet.session.cookie` |
 | A6 | `SameSite=Strict` çerez | ⚠️ | Konteyner varsayılanı `Lax`. **Öneri:** `server.servlet.session.cookie.same-site=strict` `application.yml`'ye eklensin. |
-| A7 | Kritik rollerde 2. faktör (PIN) | ⚠️ | Şema hazır (`app_user.pin_hash`), akış Faz 8'e ertelendi. Kabul edilebilir (yerel masaüstü, tek işletme). |
+| A7 | Kritik rollerde 2. faktör (PIN) | ✅ (2026-09-14) | ADMIN/MUDUR: parola girişinden sonra oturum `PinPolicy` sentetik yetkisiyle (`PIN_SETUP_REQUIRED`/`PIN_VERIFICATION_REQUIRED`) kısıtlanır — gerçek rol/izin yetkileri yalnızca PIN kurulup/doğrulanınca (`POST /api/v1/auth/pin/setup|verify`) tanınır (`AppUserDetailsService`). 5 yanlış PIN → 15 dk kilit + oturum sonlandırma (`app_user.pin_failed_count/pin_locked_until`, V17 migration). Kurtarma: `PUT /api/v1/users/{id}/pin` (`USER_EDIT`, UsersPage'de "PIN Sıfırla"). KASIYER/PERSONEL/RAPOR_OKUYUCU etkilenmez. Testler: `PinAuthTest`, `PinPolicyTest`, `UserServiceTest` PIN senaryoları, `AuthFlowTest` güncellendi. |
 | A8 | İlk girişte zorunlu parola değişimi | ✅ | Bootstrap admin `must_change_password=true`; SPA yönlendirir |
 | A9 | Bootstrap admin parolası | ✅ (düzeltildi) | Sabit `admin123` varsayılanı kaldırıldı. `bootstrap-admin-password` boşsa `DataInitializer` rastgele güçlü parola üretir ve açılış loguna **bir kez** yazar; `must_change_password=true`. Kurulum sihirbazı/otomasyon için property'den sabit ilk parola da verilebilir. Regresyon: `BootstrapAdminPasswordTest`. |
 

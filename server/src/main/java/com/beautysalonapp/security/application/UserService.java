@@ -25,6 +25,8 @@ public class UserService {
 
     private static final int MAX_FAILED_LOGINS = 5;
     private static final int LOCK_MINUTES = 15;
+    private static final int MAX_FAILED_PIN = 5;
+    private static final int PIN_LOCK_MINUTES = 15;
 
     private final AppUserRepository users;
     private final RoleRepository roles;
@@ -131,6 +133,61 @@ public class UserService {
         u.setMustChangePassword(true);
         u.setFailedLoginCount(0);
         u.setLockedUntil(null);
+    }
+
+    // --- PIN (2. faktör, güvenlik gözden geçirme A7) --------------------
+
+    /** PIN kurulumu (ilk kez) veya değiştirme. Yalnızca oturum PIN adımındayken çağrılır. */
+    public void setPin(String username, String pin) {
+        AppUser u = users.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new NotFoundException("Kullanıcı bulunamadı"));
+        validatePin(pin);
+        u.setPinHash(passwordEncoder.encode(pin));
+        u.setPinFailedCount(0);
+        u.setPinLockedUntil(null);
+        audit.record("PIN_SETUP", "AppUser", u.getId(), "PIN belirlendi: " + u.getUsername());
+    }
+
+    /** PIN doğrular; yanlışsa deneme sayacını artırır ve gerekirse kilitler. */
+    public boolean verifyPin(String username, String pin) {
+        AppUser u = users.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new NotFoundException("Kullanıcı bulunamadı"));
+        if (u.isPinLocked()) {
+            return false;
+        }
+        if (u.getPinHash() != null && passwordEncoder.matches(pin, u.getPinHash())) {
+            u.setPinFailedCount(0);
+            u.setPinLockedUntil(null);
+            return true;
+        }
+        int n = u.getPinFailedCount() + 1;
+        u.setPinFailedCount(n);
+        if (n >= MAX_FAILED_PIN) {
+            u.setPinLockedUntil(Instant.now().plusSeconds(PIN_LOCK_MINUTES * 60L));
+            audit.record("PIN_LOCKED", "AppUser", u.getId(),
+                    "Çok sayıda hatalı PIN denemesi: " + u.getUsername());
+        }
+        return false;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isPinLocked(String username) {
+        return users.findByUsernameIgnoreCase(username).map(AppUser::isPinLocked).orElse(false);
+    }
+
+    /** Yönetici tarafından PIN sıfırlama ("PIN'imi unuttum" kurtarma yolu). */
+    public void clearPin(Long id) {
+        AppUser u = get(id);
+        u.setPinHash(null);
+        u.setPinFailedCount(0);
+        u.setPinLockedUntil(null);
+        audit.record("PIN_CLEARED", "AppUser", u.getId(), "PIN sıfırlandı: " + u.getUsername());
+    }
+
+    private void validatePin(String pin) {
+        if (pin == null || !pin.matches(com.beautysalonapp.security.domain.PinPolicy.PIN_PATTERN)) {
+            throw new BusinessRuleException("weak_pin", "PIN 4-6 haneli rakamdan oluşmalıdır");
+        }
     }
 
     public void recordSuccessfulLogin(String username) {

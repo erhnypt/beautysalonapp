@@ -40,6 +40,19 @@ export const t = {
     newPassword: "Yeni parola",
     changePassword: "Parolayı Değiştir",
     passwordChanged: "Parola güncellendi.",
+    pinSetupTitle: "Güvenlik PIN'i Belirleyin",
+    pinSetupInfo:
+      "Rolünüz kritik yetkiler içerdiğinden ek bir güvenlik adımı olarak 4-6 haneli bir PIN belirlemeniz gerekiyor. Bu PIN'i her girişte parolanızla birlikte kullanacaksınız.",
+    pinVerifyTitle: "PIN Doğrulama",
+    pinVerifyInfo: "Devam etmek için PIN'inizi girin.",
+    pin: "PIN",
+    pinConfirm: "PIN (tekrar)",
+    pinMismatch: "Girdiğiniz PIN'ler eşleşmiyor.",
+    pinInvalidFormat: "PIN 4-6 haneli rakamdan oluşmalıdır.",
+    pinSetupSubmit: "PIN'i Kaydet",
+    pinVerifySubmit: "Doğrula",
+    pinWrong: "PIN hatalı.",
+    pinLocked: "Çok sayıda hatalı deneme nedeniyle oturum sonlandırıldı. Lütfen tekrar giriş yapın.",
   },
 
   license: {
@@ -79,6 +92,9 @@ export const t = {
     roles: "Roller",
     lastLogin: "Son giriş",
     resetPassword: "Parola Sıfırla",
+    resetPin: "PIN Sıfırla",
+    confirmPinReset: "PIN sıfırlansın mı? Kullanıcı bir sonraki girişte yeni bir PIN belirlemek zorunda kalacak.",
+    pinReset: "PIN sıfırlandı.",
   },
 
   settings: {

@@ -4,6 +4,12 @@ export interface CurrentUser {
   username: string;
   fullName: string;
   mustChangePassword: boolean;
+  /** Kritik roller (ADMIN/MUDUR) için PIN hiç kurulmamış — önce PIN belirlemeli. */
+  pinSetupRequired: boolean;
+  /** PIN kurulu ama bu oturumda henüz doğrulanmadı (kilitliyse de true). */
+  pinVerificationRequired: boolean;
+  /** Çok sayıda hatalı denemeden sonra PIN kilitliyse kalan süre. */
+  pinLockedUntil: string | null;
   roles: RoleName[];
   permissions: string[];
 }

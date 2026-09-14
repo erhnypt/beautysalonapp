@@ -3,6 +3,7 @@ import { useAuth } from "./lib/auth";
 import { AppLayout } from "./components/AppLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
+import { PinGatePage } from "./pages/PinGatePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { UsersPage } from "./pages/UsersPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -47,6 +48,16 @@ export default function App() {
       <Routes>
         <Route path="/parola-degistir" element={<ChangePasswordPage forced />} />
         <Route path="*" element={<Navigate to="/parola-degistir" replace />} />
+      </Routes>
+    );
+  }
+
+  // Kritik roller (ADMIN/MUDUR) için 2. faktör (§A7) — parola sonrası PIN kurulmalı/doğrulanmalı.
+  if (user.pinSetupRequired || user.pinVerificationRequired) {
+    return (
+      <Routes>
+        <Route path="/pin" element={<PinGatePage />} />
+        <Route path="*" element={<Navigate to="/pin" replace />} />
       </Routes>
     );
   }

@@ -2,6 +2,7 @@ package com.beautysalonapp.security.web;
 
 import com.beautysalonapp.security.application.UserService;
 import com.beautysalonapp.security.domain.AppUser;
+import com.beautysalonapp.security.domain.PinPolicy;
 import com.beautysalonapp.security.infrastructure.AppUserRepository;
 import com.beautysalonapp.security.web.AuthDtos.ChangePasswordRequest;
 import com.beautysalonapp.security.web.AuthDtos.CurrentUser;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -119,20 +121,31 @@ public class AuthController {
         return auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
     }
 
+    /**
+     * PIN adımı beklerken (§A7) oturumun tek yetkisi {@link PinPolicy} sabitlerinden
+     * biridir — bu durumda gerçek rol/izin listesi boş döner; SPA yalnızca PIN
+     * bayraklarına bakıp kurulum/doğrulama ekranını gösterir.
+     */
     private CurrentUser toCurrentUser(String username, Set<String> authorities) {
-        Set<String> roles = authorities.stream()
+        boolean pinSetup = authorities.contains(PinPolicy.PIN_SETUP_REQUIRED);
+        boolean pinLocked = authorities.contains(PinPolicy.PIN_LOCKED);
+        boolean pinVerify = authorities.contains(PinPolicy.PIN_VERIFICATION_REQUIRED) || pinLocked;
+        boolean gated = pinSetup || pinVerify;
+
+        Set<String> roles = gated ? Set.of() : authorities.stream()
                 .filter(a -> a.startsWith("ROLE_"))
                 .map(a -> a.substring("ROLE_".length()))
                 .collect(Collectors.toSet());
-        Set<String> permissions = authorities.stream()
+        Set<String> permissions = gated ? Set.of() : authorities.stream()
                 .filter(a -> !a.startsWith("ROLE_"))
                 .collect(Collectors.toSet());
-        boolean mustChange = users.findByUsernameIgnoreCase(username)
-                .map(AppUser::isMustChangePassword)
-                .orElse(false);
-        String fullName = users.findByUsernameIgnoreCase(username)
-                .map(AppUser::getFullName)
-                .orElse(username);
-        return new CurrentUser(username, fullName, mustChange, roles, permissions);
+
+        AppUser u = users.findByUsernameIgnoreCase(username).orElse(null);
+        boolean mustChange = u != null && u.isMustChangePassword();
+        String fullName = u != null ? u.getFullName() : username;
+        Instant pinLockedUntil = (pinLocked && u != null) ? u.getPinLockedUntil() : null;
+
+        return new CurrentUser(username, fullName, mustChange, pinSetup, pinVerify, pinLockedUntil,
+                roles, permissions);
     }
 }

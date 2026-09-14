@@ -64,6 +64,12 @@ function UsersTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 
+  // Yalnızca ADMIN/MUDUR PIN kullanır (§A7); "PIN'imi unuttum" kurtarma yolu.
+  const resetPin = useMutation({
+    mutationFn: (u: UserView) => api(`/api/v1/users/${u.id}/pin`, { method: "PUT" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+
   return (
     <div>
       {canEdit && (
@@ -116,6 +122,16 @@ function UsersTab() {
                           >
                             {u.enabled ? t.common.disabled : t.common.enabled}
                           </button>
+                          {(u.roles.includes("ADMIN") || u.roles.includes("MUDUR")) && (
+                            <button
+                              className="text-brand-700 hover:underline"
+                              onClick={() => {
+                                if (window.confirm(t.users.confirmPinReset)) resetPin.mutate(u);
+                              }}
+                            >
+                              {t.users.resetPin}
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
