@@ -9,6 +9,16 @@
     sudo launchctl load -w /Library/LaunchDaemons/com.beautysalonapp.app.plist
 
   Yol varsayımı: /Applications/BeautySalonApp.app (§5.2).
+
+  Şifreleme anahtarı System Keychain'e taşındıysa (F3, bkz.
+  packaging/scripts/wrap-crypto-key-macos.sh) ProgramArguments'ı ikili yerine
+  launch-wrapper-macos.sh'a yönlendirin — wrapper anahtarı keychain'den okuyup
+  -Dbeautysalonapp.crypto.key-base64 olarak geçirir, sonra ikiliyi çalıştırır:
+
+    <string>/Applications/BeautySalonApp.app/Contents/Resources/launch-wrapper-macos.sh</string>
+
+  Servisi root yerine az yetkili bir hesapla çalıştırmak için (I1) bkz.
+  packaging/scripts/harden-macos.sh — bu betik UserName anahtarını buraya ekler.
 -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
     "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

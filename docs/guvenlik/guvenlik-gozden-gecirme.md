@@ -77,7 +77,7 @@
 |---|---|---|---|
 | F1 | Hassas alan şifreleme (AES-256-GCM) | ✅ | `FieldCrypto` — `tc_no`, `phone`, `email`, `iban`, özel nitelikli notlar `enc` |
 | F2 | Arama için blind index | ✅ | `party.phone_bi` (HMAC), düz metin telefonla sorgu yok |
-| F3 | Şifreleme anahtarı yönetimi | ⚠️→✅ (büyük ölçüde) | `CryptoKeyProvider` öncelik sırası: (1) `crypto.key-base64` (OS kasası bu kanaldan enjekte eder), (2) `<dataDir>/config/field-crypto.key` — yoksa **32 baytlık rastgele** anahtar üretilip 0600 izinle yazılır (eski "kurulum kimliğinden türet" tahmin edilebilirliği kalktı), (3) son çare install-id türetimi + UYARI. Regresyon: `CryptoKeyProviderTest`. **Kalan iş (ops):** anahtar dosyasının DPAPI/Keychain ile sarmalanıp veri dizininden çıkarılması — "çalınan veri dizini" tehdidi için hâlâ gerekli. |
+| F3 | Şifreleme anahtarı yönetimi | ⚠️→✅ (büyük ölçüde) | `CryptoKeyProvider` öncelik sırası: (1) `crypto.key-base64` (OS kasası bu kanaldan enjekte eder), (2) `<dataDir>/config/field-crypto.key` — yoksa **32 baytlık rastgele** anahtar üretilip 0600 izinle yazılır (eski "kurulum kimliğinden türet" tahmin edilebilirliği kalktı), (3) son çare install-id türetimi + UYARI. Regresyon: `CryptoKeyProviderTest`. **Kalan iş (2026-09-14, ops):** `packaging/scripts/wrap-crypto-key-macos.sh` (System Keychain) + `packaging/windows/wrap-crypto-key-windows.ps1` (DPAPI/LocalMachine) yazıldı — **doğrulanmadı**, gerçek bir kurulumda test edilmeli (bkz. `packaging/README.md` "Kurulum sonrası sertleştirme"). |
 | F4 | Yedek şifreleme (AES-256) | ✅ | `ArchiveCrypto`; parola kaybolursa yedek açılmaz — kurulum dokümanında kullanıcıya açık uyarı |
 | F5 | Loglara PII yazılmıyor | ✅ | `NoOpSmsProvider` / `NoOpEmailSender` INFO'da yalnızca maskeli numara/adres + karakter sayısı; tam gövde yalnızca `DEBUG`. `SmtpEmailSender` loglamıyor; `HttpSmsProvider` yalnızca ağ geçidi yanıtını logluyor (gövde değil). 2026-09-10 doğrulaması. |
 | F6 | Mali kayıtta hard delete yok | ✅ | `voided` + `void_reason`; ArchUnit + kod incelemesi. Ters kayıt deseni (`reverses_id`). |
@@ -109,8 +109,8 @@
 
 | # | Kontrol | Durum | Not |
 |---|---|---|---|
-| I1 | Servis en az yetkiyle çalışır | ⚠️ | `--launcher-as-service` LocalSystem/root kurar. **Öneri:** kurulum sonrası ayrı hizmet hesabı (Windows `NT SERVICE\...`, macOS ayrı kullanıcı) — paketleme mühendisi. |
-| I2 | Veri dizini izinleri | ⚠️ | `%ProgramData%\BeautySalonApp` / `/Library/Application Support/...` — yalnızca hizmet hesabı + Administrators yazabilmeli. WiX/pkg CustomAction ile ACL. |
+| I1 | Servis en az yetkiyle çalışır | ⚠️→✅ (betik hazır, doğrulanmadı) | `--launcher-as-service` LocalSystem/root kurar. 2026-09-14: `packaging/scripts/harden-macos.sh` (`_beautysalonapp` sistem kullanıcısı) + `packaging/windows/harden-windows.ps1` (`NT SERVICE\BeautySalonApp` sanal hesabı) yazıldı — gerçek bir kurulumda **test edilmeden** üretime alınmamalı. |
+| I2 | Veri dizini izinleri | ⚠️→✅ (betik hazır, doğrulanmadı) | `%ProgramData%\BeautySalonApp` / `/Library/Application Support/...`. Aynı betikler (I1) `chmod`/`icacls` ile yalnızca hizmet hesabı + Administrators/SYSTEM yazabilecek şekilde ayarlıyor. |
 | I3 | İmzalı installer | ❌ (bloke) | 2026-09-14 doğrulaması: `sign.sh`/`notarize.sh` tamam ve doğru — yalnızca gerçek sertifika bekliyor (Apple Developer Program $99/yıl → "Developer ID Application/Installer"; Windows EV Code Signing ~$300/yıl → `signtool`). Bu bir **satın alma/kimlik doğrulama işlemidir**, kod asistanı tarafından tamamlanamaz — plan Risk #2. |
 | I4 | Güncelleme paketi bütünlüğü | ✅ | `apply-update.sh`: SHA-256 zorunlu + Ed25519 `.sig` (`BSA_UPDATE_PUBKEY_B64URL` → PEM → `openssl pkeyutl -verify -rawin`). openssl round-trip ile doğrulandı. |
 
@@ -148,11 +148,10 @@
 - Sertifika/pentest/ACL: kod asistanının tamamlayamayacağı kalemler için durum netleştirildi (aşağıdaki liste, I3/I1/I2 notları).
 
 **Kod dışı (operasyon / tedarik):**
-6. Apple + Windows imzalama sertifikaları (I3) — **Faz 1'de sipariş edilmeliydi**
-7. Şifreleme anahtar dosyasının DPAPI/Keychain ile sarmalanması (F3 kalan işi — "çalınan veri dizini" tehdidi) + paketleme launcher'ına `-Dh2.bindAddress=127.0.0.1` (E6 savunma derinliği)
-8. Hizmet hesabı + veri dizini ACL (I1, I2)
-9. Bağımsız sızma testi
-10. Avukat + KVKK danışmanı ile rıza/aydınlatma metinleri (plan §8.3 notu) — 2026-09-14: `docs/hukuk/` altına taslaklar eklendi (aydınlatma + açık rıza), avukat onayı hâlâ gerekli
+6. Apple + Windows imzalama sertifikaları (I3) — **Faz 1'de sipariş edilmeliydi**. Betikler (`sign.sh`/`notarize.sh`) hazır, yalnızca sertifika bekliyor — bu bir satın alma/kimlik doğrulama işlemi, kod asistanı tamamlayamaz.
+7. Anahtar OS kasasına sarmalama (F3) + servis en az yetki/ACL (I1, I2) — 2026-09-14: betikler yazıldı (`packaging/scripts/harden-macos.sh`, `wrap-crypto-key-macos.sh`, `packaging/windows/harden-windows.ps1`, `wrap-crypto-key-windows.ps1`) ama **gerçek bir kurulumda doğrulanmadı** (bu ortamda Windows yok, macOS betikleri sisteme zarar vermemek için çalıştırılmadı — yalnızca sözdizimi kontrol edildi). Paketleme launcher'ına `-Dh2.bindAddress=127.0.0.1` eklemek (E6 savunma derinliği) hâlâ ayrı, küçük bir iş.
+8. Bağımsız sızma testi — kapsam belgesi hazır: `docs/guvenlik/sizma-testi-kapsam.md`. Testin kendisi (firma/uzman seçimi, sözleşme, icra) kod asistanının yapabileceği bir iş değil.
+9. Avukat + KVKK danışmanı ile rıza/aydınlatma metinleri (plan §8.3 notu) — 2026-09-14: `docs/hukuk/` altına taslaklar eklendi (aydınlatma + açık rıza), avukat onayı hâlâ gerekli — hukuki onay kod asistanının yetkisi dışında.
 
 ## 11. Faz 8 eklemelerinin KVKK/PII taraması (2026-09-04)
 
