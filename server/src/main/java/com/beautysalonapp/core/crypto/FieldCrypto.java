@@ -1,8 +1,6 @@
 package com.beautysalonapp.core.crypto;
 
 import com.beautysalonapp.config.AppProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
@@ -18,14 +16,13 @@ import java.util.Base64;
  * Hassas alan (PII) şifrelemesi (§8.2). AES-256-GCM; çıktı biçimi:
  * {@code enc:v1:<base64(iv||ciphertext||tag)>}.
  *
- * <p>Anahtar {@code beautysalonapp.crypto.key-base64}'ten (32 bayt Base64) alınır;
- * boşsa kurulum kimliğinden türetilir — bu yalnızca geliştirme içindir, üretimde
- * anahtar OS keystore'dan verilmelidir.
+ * <p>Anahtar çözümü {@link CryptoKeyProvider}'a devredilir: açık yapılandırma
+ * ({@code beautysalonapp.crypto.key-base64}) → {@code <dataDir>/config/field-crypto.key}
+ * (yoksa rastgele üretilir) → son çare kurulum kimliğinden türetim.
  */
 @Component
 public class FieldCrypto {
 
-    private static final Logger log = LoggerFactory.getLogger(FieldCrypto.class);
     private static final String PREFIX = "enc:v1:";
     private static final int IV_LEN = 12;
     private static final int TAG_BITS = 128;
@@ -34,17 +31,7 @@ public class FieldCrypto {
     private final SecureRandom random = new SecureRandom();
 
     public FieldCrypto(AppProperties props) {
-        String configured = props.getCrypto().getKeyBase64();
-        if (configured != null && !configured.isBlank()) {
-            byte[] raw = Base64.getDecoder().decode(configured.trim());
-            if (raw.length != 32) {
-                throw new IllegalStateException("crypto.key-base64 tam 32 bayt olmalı, gelen: " + raw.length);
-            }
-            this.key = new SecretKeySpec(raw, "AES");
-        } else {
-            log.warn("beautysalonapp.crypto.key-base64 ayarlı değil — anahtar kurulum kimliğinden türetiliyor (yalnızca geliştirme)");
-            this.key = deriveFromInstallId(props.getInstallId());
-        }
+        this.key = CryptoKeyProvider.resolveKey(props);
     }
 
     public String encrypt(String plaintext) {
@@ -101,17 +88,6 @@ public class FieldCrypto {
             return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(digest, 16));
         } catch (Exception e) {
             return null;
-        }
-    }
-
-    private static SecretKeySpec deriveFromInstallId(String installId) {
-        try {
-            String seed = (installId == null || installId.isBlank() ? "beautysalonapp-dev" : installId)
-                    + "|field-crypto|v1";
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(seed.getBytes(StandardCharsets.UTF_8));
-            return new SecretKeySpec(digest, "AES");
-        } catch (Exception e) {
-            throw new IllegalStateException("Anahtar türetilemedi", e);
         }
     }
 }

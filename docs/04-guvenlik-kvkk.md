@@ -62,10 +62,18 @@ Claude Code) tekrar araştırmasın diye. Mevcut örnekler: `docs/modules/e-fatu
 | Vergi no | `party.tax_id` | AES-256-GCM | `FieldCrypto` |
 | Özel nitelikli notlar (alerji, cilt tipi vb.) | `party_note` (kategori bazlı) | AES-256-GCM | `FieldCrypto` |
 
-Anahtar yönetimi: üretimde `beautysalonapp.crypto.key-base64` OS keystore'dan (Windows
-DPAPI / macOS Keychain) beslenir; anahtar tanımlı değilse uygulama kurulum kimliğinden
-türetilmiş bir anahtarla **yalnızca geliştirme modunda** çalışır ve bunu loga uyarı
-olarak yazar (`FieldCrypto` — bkz. ADR 0005 notu). Paketleme bu adımı doğrulamalıdır.
+Anahtar yönetimi (`FieldCrypto` → `CryptoKeyProvider`, öncelik sırası):
+
+1. **`beautysalonapp.crypto.key-base64`** (env / system property / yml). Üretimde OS anahtar
+   kasası (Windows DPAPI / macOS Keychain) anahtarı bu kanaldan enjekte eder — kod tarafında
+   ek iş yok. Paketleme bu adımı doğrulamalıdır (ADR 0005 notu).
+2. **`<dataDir>/config/field-crypto.key`** — ilk açılışta yoksa 32 baytlık **rastgele** anahtar
+   üretilip sahibe özel izinle (POSIX 0600) buraya yazılır. Varsayılan kurulumda bile anahtar
+   tam entropilidir; eski "kurulum kimliğinden türet" deseninin tahmin edilebilirliği kalktı.
+   Bu dosya DB dosyasıyla **aynı güven sınırındadır** — OS kasasına sarmalanıp veri dizininden
+   çıkarılması bir paketleme/işletim adımıdır (I2 ile birlikte).
+3. **Son çare:** dosya yazılamıyorsa (salt-okunur FS) kurulum kimliğinden türetim + loga UYARI.
+   Yalnızca geliştirme; üretimde 1 veya 2 kullanılmalı.
 
 ## 3. Kör indeks (blind index) deseni
 
@@ -133,6 +141,13 @@ KVKK ile doğrudan ilişkili: giden HTTP çağrıları `OutboundHttpGuard` allow
 geçmelidir. SMS/e-posta gönderiminde giden veri **yalnızca gönderim anındaki tek alıcı +
 tek mesajdır** — toplu müşteri listesi, ciro, stok gibi hiçbir iş verisi dışarı çıkmaz
 (§2.1). Yeni bir entegrasyon eklerken bu sınırı PR açıklamasında gerekçelendirin.
+
+Mevcut allowlist hedefleri:
+
+| Hedef | Amaç | Giden veri |
+|---|---|---|
+| `https://license.beautysalonapp.com` | Lisans doğrulama / heartbeat | Kurulum parmak izi (PII değil) |
+| `https://query1.finance.yahoo.com` | Canlı döviz kuru önerisi (Döviz işlemi ekranı) | **Yok** — yalnızca `GET .../chart/USDTRY=X`, gövde yok. `full-offline-mode` / `beautysalonapp.fx.enabled=false` ile kapatılır. Ayrıntı: `docs/modules/finans.md` "Canlı döviz kuru". |
 
 ## 10. Açık/kod-dışı kalemler
 

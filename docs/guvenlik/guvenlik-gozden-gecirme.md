@@ -22,7 +22,7 @@
 | A6 | `SameSite=Strict` çerez | ⚠️ | Konteyner varsayılanı `Lax`. **Öneri:** `server.servlet.session.cookie.same-site=strict` `application.yml`'ye eklensin. |
 | A7 | Kritik rollerde 2. faktör (PIN) | ⚠️ | Şema hazır (`app_user.pin_hash`), akış Faz 8'e ertelendi. Kabul edilebilir (yerel masaüstü, tek işletme). |
 | A8 | İlk girişte zorunlu parola değişimi | ✅ | Bootstrap admin `must_change_password=true`; SPA yönlendirir |
-| A9 | Bootstrap admin parolası | ⚠️ | `admin/admin123` varsayılan. A8 zorunlu değişim ile telafi. Kurulum sihirbazı ilk parolayı almalı (kurulum dokümanına eklendi). |
+| A9 | Bootstrap admin parolası | ✅ (düzeltildi) | Sabit `admin123` varsayılanı kaldırıldı. `bootstrap-admin-password` boşsa `DataInitializer` rastgele güçlü parola üretir ve açılış loguna **bir kez** yazar; `must_change_password=true`. Kurulum sihirbazı/otomasyon için property'den sabit ilk parola da verilebilir. Regresyon: `BootstrapAdminPasswordTest`. |
 
 ## 2. Yetkilendirme
 
@@ -34,6 +34,7 @@
 | B4 | Yetki kontrolü controller değil servis katmanında | ✅ | Metot güvenliği + ince controller kuralı (CLAUDE.md) |
 | B5 | IDOR (nesne düzeyi yetki) | ⚠️ | Tek işletme / `branch_id=1` sabit; çok şubeli senaryoda (v2) `branch_id` filtresi zorunlu olacak. Şimdilik kabul. |
 | B6 | Swagger UI üretimde açık | ⚠️ | `/swagger-ui/**` `permitAll`. Yerel bağlı (127.0.0.1) olduğu için düşük risk. **Öneri:** `packaged` profilinde `springdoc.swagger-ui.enabled=false`. |
+| B7 | Her uç noktada yetki kontrolü | ✅ (düzeltildi) | `GET /api/v1/dashboard/today` Faz 5'ten beri sınıf/metot düzeyinde `@PreAuthorize` olmadan yalnızca kimlik doğrulamalıydı; her rol (PERSONEL dâhil) günlük ciro/tahsilat/gider/ödeme dağılımını okuyabiliyordu. `/end-of-day` ile aynı `REPORTING_VIEW` yetkisine bağlandı; SPA `DashboardPage` yetkisiz kullanıcıya mali kartları göstermeyip bilgi panosu döndürür. Regresyon: `DashboardApiTest` (401/403/200). |
 
 ## 3. Girdi doğrulama ve enjeksiyon
 
@@ -66,8 +67,9 @@
 | E1 | Varsayılan bağlanma `127.0.0.1` | ✅ | `server.address: 127.0.0.1` |
 | E2 | LAN erişimi opt-in + uyarı | ✅ | `beautysalonapp.lan-access-enabled` (varsayılan false) |
 | E3 | Tüm giden HTTP tek guardlı istemciden | ✅ | `GuardedRestClient` + `OutboundHttpGuard` allowlist; ArchUnit testi `RestTemplate/RestClient/WebClient` doğrudan kullanımını engeller |
-| E4 | Allowlist içeriği | ✅ | Yalnızca `https://license.beautysalonapp.com` (lisans/heartbeat). İş verisi gönderilmiyor. |
+| E4 | Allowlist içeriği | ✅ | `https://license.beautysalonapp.com` (lisans/heartbeat) + `https://query1.finance.yahoo.com` (canlı döviz kuru — 2026-09-10 eklendi). İkisi de tek yönlü: dışarı hiçbir iş verisi/PII gitmez. Yahoo çağrısı yalnızca `GET .../chart/USDTRY=X`; `full-offline-mode` ve `beautysalonapp.fx.enabled=false` ile kapatılır. |
 | E5 | `full-offline-mode` | ✅ | SMS/e-posta + heartbeat kapatılabilir |
+| E6 | H2 `AUTO_SERVER` dinleyicisi loopback'te | ✅ (düzeltildi) | JDBC URL `AUTO_SERVER=TRUE` kullanıyor; H2 ikinci işlem erişimi için bir TCP soketi açar ve bu `server.address: 127.0.0.1`'e tabi değildir. Parolasız `sa` ile makine dışından tam DB erişimi (uygulama/lisans/yetki katmanını atlar) mümkündü. `BeautySalonAppApplication.hardenH2BindAddress()` `main()` içinde, H2 sınıfları yüklenmeden önce `h2.bindAddress=127.0.0.1` ayarlar (operatör `-Dh2.bindAddress=...` ile ezebilir). Regresyon: `H2BindAddressHardeningTest`. Not: paketleme launcher'ına da `-Dh2.bindAddress=127.0.0.1` eklemek savunma derinliği sağlar. |
 
 ## 6. Veri güvenliği ve KVKK (plan §8.2–8.3)
 
@@ -75,9 +77,9 @@
 |---|---|---|---|
 | F1 | Hassas alan şifreleme (AES-256-GCM) | ✅ | `FieldCrypto` — `tc_no`, `phone`, `email`, `iban`, özel nitelikli notlar `enc` |
 | F2 | Arama için blind index | ✅ | `party.phone_bi` (HMAC), düz metin telefonla sorgu yok |
-| F3 | Şifreleme anahtarı yönetimi | ⚠️ | Anahtar yoksa kurulum kimliğinden türetiliyor (**yalnızca geliştirme** uyarısı `FieldCrypto`). Üretim: `beautysalonapp.crypto.key-base64` OS keystore'dan (Windows DPAPI / macOS Keychain) beslenmeli — paketleme mühendisi görevi (ADR 0005'e not eklendi). |
+| F3 | Şifreleme anahtarı yönetimi | ⚠️→✅ (büyük ölçüde) | `CryptoKeyProvider` öncelik sırası: (1) `crypto.key-base64` (OS kasası bu kanaldan enjekte eder), (2) `<dataDir>/config/field-crypto.key` — yoksa **32 baytlık rastgele** anahtar üretilip 0600 izinle yazılır (eski "kurulum kimliğinden türet" tahmin edilebilirliği kalktı), (3) son çare install-id türetimi + UYARI. Regresyon: `CryptoKeyProviderTest`. **Kalan iş (ops):** anahtar dosyasının DPAPI/Keychain ile sarmalanıp veri dizininden çıkarılması — "çalınan veri dizini" tehdidi için hâlâ gerekli. |
 | F4 | Yedek şifreleme (AES-256) | ✅ | `ArchiveCrypto`; parola kaybolursa yedek açılmaz — kurulum dokümanında kullanıcıya açık uyarı |
-| F5 | Loglara PII yazılmıyor | ⚠️ | Politika var (CLAUDE.md #10). `NoOpSmsProvider` log satırı mesaj metnini yazıyor (müşteri adı içerebilir). **Öneri:** SMS/e-posta gövdesi log seviyesinde maskelensin veya `DEBUG`'a çekilsin. |
+| F5 | Loglara PII yazılmıyor | ✅ | `NoOpSmsProvider` / `NoOpEmailSender` INFO'da yalnızca maskeli numara/adres + karakter sayısı; tam gövde yalnızca `DEBUG`. `SmtpEmailSender` loglamıyor; `HttpSmsProvider` yalnızca ağ geçidi yanıtını logluyor (gövde değil). 2026-09-10 doğrulaması. |
 | F6 | Mali kayıtta hard delete yok | ✅ | `voided` + `void_reason`; ArchUnit + kod incelemesi. Ters kayıt deseni (`reverses_id`). |
 | F7 | Tam audit log | ✅ | `AuditService.record` — mali işlem, fiyat/indirim değişimi, yedek geri yükleme; `entity_id`/`summary` uzunluk sınırı |
 | F8 | Veri taşınabilirliği (dışa aktarma) | ✅ | `LOCKED` durumda bile çalışır (CLAUDE.md #9) — `LicenseEnforcementFilter` export yolunu muaf tutar |
@@ -92,7 +94,7 @@
 | G2 | Monotonik saat (geri alma tespiti) | ✅ | `license_state` şifreli cache + `MonotonicClock` (AES-256-GCM), 6 saat tolerans |
 | G3 | Kademeli kısıtlama | ✅ | `ACTIVE→EXPIRING→GRACE→READ_ONLY→LOCKED→TAMPERED` — tüm geçişler `LicenseLifecycleTest` (11) ile sahte saatle test edildi |
 | G4 | Bypass edilebilirlik | ⚠️ (kabul) | Plan Risk #3: lisans kırılabilir, aşırı mühendislik yapılmadı; destek ilişkisiyle telafi |
-| G5 | Geliştirme modu üretime sızması | ⚠️ | Public key boşsa "tüm modüller açık". Paketleme adımı `@LICENSE_PUBLIC_KEY@` token'ını gömer; **release checklist'te doğrulama maddesi var** (`docs/17-faz7-sertlestirme.md`). |
+| G5 | Geliştirme modu üretime sızması | ✅ (düzeltildi) | `PackagedLicenseKeyGuard` (`@Profile("packaged")`) — public key boş veya `@LICENSE_PUBLIC_KEY@` token'ı değişmemişse uygulama açılışta durur; "tüm modüller açık" moduna sessiz düşüş engellendi. Geliştirme profillerinde (varsayılan) guard yüklenmez. Regresyon: `PackagedLicenseKeyGuardTest`. |
 
 ## 8. Bağımlılık ve tedarik zinciri
 
@@ -131,9 +133,21 @@
 **Faz 8'de kapatıldı:**
 - C5: `AttachmentService` dosya adı / yol geçişi sanitizasyonu eklendi ve birim testiyle sabitlendi.
 
+**2026-09-10 güvenlik geçişinde kapatıldı:**
+- B7: `GET /api/v1/dashboard/today` → `REPORTING_VIEW` (`DashboardApiTest`).
+- E6: H2 `AUTO_SERVER` dinleyicisi loopback'e sabitlendi — `hardenH2BindAddress()` (`H2BindAddressHardeningTest`).
+- F3 (büyük ölçüde): `CryptoKeyProvider` — rastgele üretilen 0600 anahtar dosyası varsayılan (`CryptoKeyProviderTest`).
+- A9: sabit `admin123` kaldırıldı — rastgele üretilip loglanan ilk parola (`BootstrapAdminPasswordTest`).
+- G5: `PackagedLicenseKeyGuard` — `packaged` profilinde gömülü key yoksa açılış durur (`PackagedLicenseKeyGuardTest`).
+- F5: doğrulandı (NoOp sağlayıcılar maskeli; tam gövde yalnızca DEBUG).
+
+**Kod (hâlâ açık, izlenmeli):**
+- A7: kritik rollerde 2. faktör (PIN) — şema hazır (`app_user.pin_hash`), akış yok. Yerel tek-işletme için kabul; ayrı özellik kapsamı.
+- B5: nesne düzeyi yetki / şube filtresi — çok şubeli senaryoda (v2) zorunlu. `dashboard/today` hâlâ serbest `branchId` alıyor.
+
 **Kod dışı (operasyon / tedarik):**
 6. Apple + Windows imzalama sertifikaları (I3) — **Faz 1'de sipariş edilmeliydi**
-7. OS keystore'dan şifreleme anahtarı besleme (F3)
+7. Şifreleme anahtar dosyasının DPAPI/Keychain ile sarmalanması (F3 kalan işi — "çalınan veri dizini" tehdidi) + paketleme launcher'ına `-Dh2.bindAddress=127.0.0.1` (E6 savunma derinliği)
 8. Hizmet hesabı + veri dizini ACL (I1, I2)
 9. Bağımsız sızma testi
 10. Avukat + KVKK danışmanı ile rıza/aydınlatma metinleri (plan §8.3 notu)

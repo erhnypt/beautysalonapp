@@ -16,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Set;
 
 /**
@@ -72,11 +74,35 @@ public class DataInitializer implements ApplicationRunner {
             return;
         }
         Role adminRole = roles.findByName(RoleName.ADMIN).orElseThrow();
-        AppUser admin = new AppUser(username, "Sistem Yöneticisi",
-                passwordEncoder.encode(props.getSecurity().getBootstrapAdminPassword()));
+
+        String configured = props.getSecurity().getBootstrapAdminPassword();
+        boolean generated = configured == null || configured.isBlank();
+        String password = generated ? generateBootstrapPassword() : configured;
+
+        AppUser admin = new AppUser(username, "Sistem Yöneticisi", passwordEncoder.encode(password));
         admin.setMustChangePassword(true);
         admin.setRoles(Set.of(adminRole));
         users.save(admin);
-        log.warn("Bootstrap yönetici oluşturuldu: kullanıcı='{}' — İLK GİRİŞTE PAROLAYI DEĞİŞTİRİN", username);
+
+        if (generated) {
+            // Üretilen tek kullanımlık parola: PII değil, ilk girişte zorunlu değişir (A9).
+            log.warn("======================================================================");
+            log.warn("Bootstrap yönetici oluşturuldu — kullanıcı='{}'  GEÇİCİ PAROLA: {}", username, password);
+            log.warn("Bu parola YALNIZCA ŞİMDİ gösteriliyor. İlk girişte değiştirmeniz zorunlu.");
+            log.warn("======================================================================");
+        } else {
+            log.warn("Bootstrap yönetici oluşturuldu: kullanıcı='{}' — İLK GİRİŞTE PAROLAYI DEĞİŞTİRİN", username);
+        }
+    }
+
+    /**
+     * Rastgele tek kullanımlık bootstrap parolası. {@code Aa1} öneki
+     * {@link com.beautysalonapp.security.application.UserService} parola politikasını
+     * (>=8, harf+rakam) her koşulda karşılar; gerisi 96 bit entropi.
+     */
+    static String generateBootstrapPassword() {
+        byte[] buf = new byte[12];
+        new SecureRandom().nextBytes(buf);
+        return "Aa1" + Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
     }
 }

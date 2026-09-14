@@ -21,8 +21,16 @@ public class DashboardController {
         this.reports = reports;
     }
 
-    /** {@code branchId} verilmezse tüm şubeler (Faz 8 merkezi görünüm, bkz. docs/adr/0006). */
+    /**
+     * {@code branchId} verilmezse tüm şubeler (Faz 8 merkezi görünüm, bkz. docs/adr/0006).
+     *
+     * <p>Ciro, tahsilat, gider, ödeme türü dağılımı ve taksit/çek uyarılarını döndürür —
+     * mali özet niteliğindedir; bu yüzden {@code /end-of-day} ile aynı {@code REPORTING_VIEW}
+     * yetkisine bağlıdır (aksi halde her oturum açan kullanıcı işletmenin günlük mali
+     * tablosunu görebilir).
+     */
     @GetMapping("/today")
+    @PreAuthorize("hasAuthority('REPORTING_VIEW')")
     public DailyDashboard today(@RequestParam(required = false) Long branchId) {
         return reports.today(branchId);
     }

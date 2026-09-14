@@ -85,7 +85,9 @@ beautysalonapp:
   default-currency: TRY
   security:
     bootstrap-admin-username: admin
-    bootstrap-admin-password: admin123
+    # Boş: ilk açılışta rastgele güçlü parola üretilir ve loga bir kez yazılır (A9).
+    # Kurulum sihirbazı/otomasyon için buradan sabit bir ilk parola da verilebilir.
+    bootstrap-admin-password: ""
   licensing:
     # Boş public key + lisans dosyası yok => GELİŞTİRME MODU (tüm modüller açık).
     # Üretim derlemesinde gömülü public key buraya (veya koda) konur.
@@ -96,3 +98,8 @@ beautysalonapp:
   outbound:
     allowlist:
       - https://license.beautysalonapp.com
+      # Canlı döviz kuru (Yahoo Finance) — tek yönlü GET, iş verisi gönderilmez (§2.1).
+      - https://query1.finance.yahoo.com
+  fx:
+    # Canlı kur çekme (Ayarlar › tam çevrimdışı mod açıksa yok sayılır). Kapatmak için false.
+    enabled: true

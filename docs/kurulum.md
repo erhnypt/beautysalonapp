@@ -75,7 +75,11 @@ bağlanmasını ayarlar.
 
 İlk açılışta sırayla:
 
-1. **Yönetici parolası** — varsayılan `admin/admin123` ise değiştirilmesi zorunludur.
+1. **Yönetici parolası** — ilk açılışta `admin` kullanıcısı için **rastgele bir geçici parola
+   üretilir** ve uygulama günlüğüne (`…\BeautySalonApp\logs\beautysalonapp.log`) bir kez yazılır:
+   `Bootstrap yönetici oluşturuldu — kullanıcı='admin'  GEÇİCİ PAROLA: …`. Bu parolayla giriş yapıp
+   hemen değiştirin (sistem zorunlu tutar). Otomasyonlu kurulumlarda
+   `beautysalonapp.security.bootstrap-admin-password` ile sabit bir ilk parola verilebilir.
 2. **İşletme bilgileri** — ünvan, adres, vergi dairesi/no (fatura başlığı).
 3. **Yedekleme**
    - Yedek klasörü (varsayılan `…\BeautySalonApp\backups`)

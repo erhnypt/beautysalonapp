@@ -101,6 +101,8 @@ export const t = {
   dashboard: {
     title: "Bugün",
     comingSoon: "Bu modül geliştirme aşamasında.",
+    noReportingAccess:
+      "Günlük mali özeti görüntülemek için raporlama yetkiniz bulunmuyor. Yetki için yöneticinize başvurun.",
   },
 } as const;
 

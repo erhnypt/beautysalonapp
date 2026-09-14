@@ -57,6 +57,13 @@ const alertLabel: Record<string, (a: Alert) => string> = {
 
 export function DashboardPage() {
   const [branchId, setBranchId] = useState<number | "">("");
+  const { has } = useAuth();
+  const { data: license } = useLicense();
+  // Günlük analiz mali özet içerir; backend /api/v1/dashboard/today artık
+  // REPORTING_VIEW ister. Yetkisi olmayan kullanıcıyı 403'e sokmamak için sorguyu
+  // ve mali kartları koşullu render ediyoruz.
+  const canSeeDashboard = has("REPORTING_VIEW");
+  const canSeeBackup = has("BACKUP_RUN") || has("BACKUP_RESTORE") || has("SETTINGS_VIEW");
 
   const branches = useQuery({
     queryKey: ["branches-for-switcher"],
@@ -67,10 +74,8 @@ export function DashboardPage() {
     queryFn: () =>
       api<Dashboard>(`/api/v1/dashboard/today${branchId ? `?branchId=${branchId}` : ""}`),
     refetchInterval: 2 * 60 * 1000,
+    enabled: canSeeDashboard,
   });
-  const { data: license } = useLicense();
-  const { has } = useAuth();
-  const canSeeBackup = has("BACKUP_RUN") || has("BACKUP_RESTORE") || has("SETTINGS_VIEW");
   const { data: backupStatus } = useQuery({
     queryKey: ["backup-status-dashboard"],
     queryFn: () => api<BackupStatus>("/api/v1/backup/status"),
@@ -78,6 +83,40 @@ export function DashboardPage() {
   });
 
   const showSwitcher = (branches.data?.length ?? 0) > 1;
+
+  const licenseLine = (
+    <li className="flex items-start gap-2 pt-1 text-slate-500">
+      <span>{license?.status === "ACTIVE" || license?.devMode ? "✓" : "⚠"}</span>
+      <span>Lisans: {license?.devMode ? "geliştirme modu" : license?.status ?? "—"}</span>
+    </li>
+  );
+  const backupLine = canSeeBackup && backupStatus && (
+    <li className={`flex items-start gap-2 ${backupStatus.lastError ? "text-red-700" : "text-slate-500"}`}>
+      <span>{backupStatus.lastError ? "⚠" : backupStatus.lastSuccessfulAt ? "✓" : "⚠"}</span>
+      <span>
+        {backupStatus.lastError
+          ? `Son yedek başarısız: ${backupStatus.lastError}`
+          : backupStatus.lastSuccessfulAt
+            ? `Son yedek: ${new Date(backupStatus.lastSuccessfulAt).toLocaleString("tr-TR")}`
+            : "Henüz yedek alınmadı"}
+      </span>
+    </li>
+  );
+
+  if (!canSeeDashboard) {
+    return (
+      <div>
+        <PageHeader title={t.dashboard.title} />
+        <div className="card max-w-xl">
+          <p className="text-sm text-slate-600">{t.dashboard.noReportingAccess}</p>
+          <ul className="mt-3 space-y-1.5 text-sm">
+            {licenseLine}
+            {backupLine}
+          </ul>
+        </div>
+      </div>
+    );
+  }
 
   if (!data) {
     return (
@@ -158,24 +197,8 @@ export function DashboardPage() {
             {data.alerts.every((a) => a.count === 0) && (
               <li className="text-slate-400">Uyarı yok</li>
             )}
-            <li className="flex items-start gap-2 pt-1 text-slate-500">
-              <span>{license?.status === "ACTIVE" || license?.devMode ? "✓" : "⚠"}</span>
-              <span>
-                Lisans: {license?.devMode ? "geliştirme modu" : license?.status ?? "—"}
-              </span>
-            </li>
-            {canSeeBackup && backupStatus && (
-              <li className={`flex items-start gap-2 ${backupStatus.lastError ? "text-red-700" : "text-slate-500"}`}>
-                <span>{backupStatus.lastError ? "⚠" : backupStatus.lastSuccessfulAt ? "✓" : "⚠"}</span>
-                <span>
-                  {backupStatus.lastError
-                    ? `Son yedek başarısız: ${backupStatus.lastError}`
-                    : backupStatus.lastSuccessfulAt
-                      ? `Son yedek: ${new Date(backupStatus.lastSuccessfulAt).toLocaleString("tr-TR")}`
-                      : "Henüz yedek alınmadı"}
-                </span>
-              </li>
-            )}
+            {licenseLine}
+            {backupLine}
           </ul>
         </div>
       </div>

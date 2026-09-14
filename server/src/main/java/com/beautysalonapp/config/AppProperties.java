@@ -96,6 +96,9 @@ public class AppProperties {
     private Crypto crypto = new Crypto();
 
     @NestedConfigurationProperty
+    private Fx fx = new Fx();
+
+    @NestedConfigurationProperty
     private Backup backup = new Backup();
 
     @NestedConfigurationProperty
@@ -218,17 +221,38 @@ public class AppProperties {
     public static class Outbound {
         /** İzin verilen giden HTTP hedefleri (şema + host öneki). Bunun dışına istek RED. */
         private List<String> allowlist = List.of(
-                "https://license.beautysalonapp.com"
+                "https://license.beautysalonapp.com",
+                // Canlı döviz kuru (Yahoo Finance) — tek yönlü GET, hiçbir iş verisi gönderilmez (§2.1).
+                "https://query1.finance.yahoo.com"
         );
         public List<String> getAllowlist() { return allowlist; }
         public void setAllowlist(List<String> v) { this.allowlist = v; }
     }
 
+    public static class Fx {
+        /** Canlı kur çekme açık mı? Kapalıysa yalnızca elle giriş. */
+        private boolean enabled = true;
+        /** Yahoo Finance chart uç noktası kök adresi (test için ezilebilir). */
+        private String yahooBaseUrl = "https://query1.finance.yahoo.com/v8/finance/chart/";
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean v) { this.enabled = v; }
+        public String getYahooBaseUrl() { return yahooBaseUrl; }
+        public void setYahooBaseUrl(String v) { this.yahooBaseUrl = v; }
+    }
+
+    public Fx getFx() { return fx; }
+    public void setFx(Fx fx) { this.fx = fx; }
+
     public static class Security {
         /** İlk açılışta oluşturulacak yönetici kullanıcı adı. */
         private String bootstrapAdminUsername = "admin";
-        /** İlk açılışta oluşturulacak yönetici parolası (ilk girişte değiştirilmeli). */
-        private String bootstrapAdminPassword = "admin123";
+        /**
+         * İlk açılışta oluşturulacak yönetici parolası. <b>Boş bırakılırsa</b> (varsayılan)
+         * rastgele güçlü bir parola üretilir ve açılış loguna bir kez yazılır — üründe
+         * sabit varsayılan kimlik bilgisi gönderilmez (güvenlik gözden geçirme A9). Her
+         * durumda {@code must_change_password=true}.
+         */
+        private String bootstrapAdminPassword = "";
         public String getBootstrapAdminUsername() { return bootstrapAdminUsername; }
         public void setBootstrapAdminUsername(String v) { this.bootstrapAdminUsername = v; }
         public String getBootstrapAdminPassword() { return bootstrapAdminPassword; }
