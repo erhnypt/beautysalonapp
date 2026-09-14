@@ -111,7 +111,7 @@
 |---|---|---|---|
 | I1 | Servis en az yetkiyle çalışır | ⚠️ | `--launcher-as-service` LocalSystem/root kurar. **Öneri:** kurulum sonrası ayrı hizmet hesabı (Windows `NT SERVICE\...`, macOS ayrı kullanıcı) — paketleme mühendisi. |
 | I2 | Veri dizini izinleri | ⚠️ | `%ProgramData%\BeautySalonApp` / `/Library/Application Support/...` — yalnızca hizmet hesabı + Administrators yazabilmeli. WiX/pkg CustomAction ile ACL. |
-| I3 | İmzalı installer | ❌ (bloke) | Gerçek sertifika gerek* — plan Risk #2. `sign.sh`/`notarize.sh` hazır. |
+| I3 | İmzalı installer | ❌ (bloke) | 2026-09-14 doğrulaması: `sign.sh`/`notarize.sh` tamam ve doğru — yalnızca gerçek sertifika bekliyor (Apple Developer Program $99/yıl → "Developer ID Application/Installer"; Windows EV Code Signing ~$300/yıl → `signtool`). Bu bir **satın alma/kimlik doğrulama işlemidir**, kod asistanı tarafından tamamlanamaz — plan Risk #2. |
 | I4 | Güncelleme paketi bütünlüğü | ✅ | `apply-update.sh`: SHA-256 zorunlu + Ed25519 `.sig` (`BSA_UPDATE_PUBKEY_B64URL` → PEM → `openssl pkeyutl -verify -rawin`). openssl round-trip ile doğrulandı. |
 
 \* Apple Developer Program ($99/yıl), Windows EV Code Signing (~$300/yıl).
@@ -150,7 +150,7 @@
 7. Şifreleme anahtar dosyasının DPAPI/Keychain ile sarmalanması (F3 kalan işi — "çalınan veri dizini" tehdidi) + paketleme launcher'ına `-Dh2.bindAddress=127.0.0.1` (E6 savunma derinliği)
 8. Hizmet hesabı + veri dizini ACL (I1, I2)
 9. Bağımsız sızma testi
-10. Avukat + KVKK danışmanı ile rıza/aydınlatma metinleri (plan §8.3 notu)
+10. Avukat + KVKK danışmanı ile rıza/aydınlatma metinleri (plan §8.3 notu) — 2026-09-14: `docs/hukuk/` altına taslaklar eklendi (aydınlatma + açık rıza), avukat onayı hâlâ gerekli
 
 ## 11. Faz 8 eklemelerinin KVKK/PII taraması (2026-09-04)
 
