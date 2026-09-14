@@ -95,6 +95,11 @@ export const t = {
     resetPin: "PIN Sıfırla",
     confirmPinReset: "PIN sıfırlansın mı? Kullanıcı bir sonraki girişte yeni bir PIN belirlemek zorunda kalacak.",
     pinReset: "PIN sıfırlandı.",
+    editBranches: "Şubeleri Düzenle",
+    branchRestriction: "Şube Kısıtlaması",
+    branchRestrictionNone: "Kısıtlama yok (tüm şubelerde çalışabilir)",
+    branchRestrictionHelp:
+      "İşaretli şube(ler) dışında hiçbir şubede işlem yapamaz ve o şubeleri göremez.",
   },
 
   settings: {

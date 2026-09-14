@@ -16,6 +16,12 @@ interface RoleView {
   permissions: string[];
 }
 
+interface BranchOption {
+  id: number;
+  code: string;
+  title: string;
+}
+
 export function UsersPage() {
   const [tab, setTab] = useState<"kullanicilar" | "roller">("kullanicilar");
 
@@ -57,6 +63,7 @@ function UsersTab() {
   });
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingBranchesId, setEditingBranchesId] = useState<number | null>(null);
 
   const toggleEnabled = useMutation({
     mutationFn: (u: UserView) =>
@@ -118,6 +125,12 @@ function UsersTab() {
                           </button>
                           <button
                             className="text-brand-700 hover:underline"
+                            onClick={() => setEditingBranchesId(editingBranchesId === u.id ? null : u.id)}
+                          >
+                            {editingBranchesId === u.id ? t.common.cancel : t.users.editBranches}
+                          </button>
+                          <button
+                            className="text-brand-700 hover:underline"
                             onClick={() => toggleEnabled.mutate(u)}
                           >
                             {u.enabled ? t.common.disabled : t.common.enabled}
@@ -140,6 +153,13 @@ function UsersTab() {
                     <tr>
                       <td colSpan={5} className="bg-slate-50 px-4 py-3">
                         <EditUserRolesForm user={u} onClose={() => setEditingId(null)} />
+                      </td>
+                    </tr>
+                  )}
+                  {editingBranchesId === u.id && (
+                    <tr>
+                      <td colSpan={5} className="bg-slate-50 px-4 py-3">
+                        <EditUserBranchesForm user={u} onClose={() => setEditingBranchesId(null)} />
                       </td>
                     </tr>
                   )}
@@ -186,6 +206,68 @@ function EditUserRolesForm({ user, onClose }: { user: UserView; onClose: () => v
         <button
           className="btn-primary"
           disabled={save.isPending || roles.length === 0}
+          onClick={() => {
+            setErr(null);
+            save.mutate();
+          }}
+        >
+          {t.common.save}
+        </button>
+        <button type="button" className="btn-ghost" onClick={onClose}>
+          {t.common.cancel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Kullanıcıyı belirli şube(ler)e kısıtlar; boş seçim kısıtlamayı kaldırır (§B5). */
+function EditUserBranchesForm({ user, onClose }: { user: UserView; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [branchIds, setBranchIds] = useState<number[]>(user.assignedBranchIds);
+  const [err, setErr] = useState<string | null>(null);
+
+  const branches = useQuery({
+    queryKey: ["branches-for-switcher"],
+    queryFn: () => api<BranchOption[]>("/api/v1/branches"),
+  });
+
+  const save = useMutation({
+    mutationFn: () => api(`/api/v1/users/${user.id}/branches`, { method: "PUT", body: { branchIds } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      onClose();
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : t.common.error),
+  });
+
+  const toggle = (id: number) => {
+    setBranchIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  return (
+    <div className="flex flex-wrap items-end gap-4">
+      {err && <div className="w-full rounded bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <div>
+        <div className="mb-1 text-sm font-medium">{t.users.branchRestriction}</div>
+        <p className="mb-2 text-xs text-slate-500">{t.users.branchRestrictionHelp}</p>
+        <div className="flex flex-wrap gap-3">
+          <label className="flex items-center gap-1.5 text-sm">
+            <input type="checkbox" checked={branchIds.length === 0} onChange={() => setBranchIds([])} />
+            {t.users.branchRestrictionNone}
+          </label>
+          {branches.data?.map((b) => (
+            <label key={b.id} className="flex items-center gap-1.5 text-sm">
+              <input type="checkbox" checked={branchIds.includes(b.id)} onChange={() => toggle(b.id)} />
+              {b.code} — {b.title}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          className="btn-primary"
+          disabled={save.isPending}
           onClick={() => {
             setErr(null);
             save.mutate();

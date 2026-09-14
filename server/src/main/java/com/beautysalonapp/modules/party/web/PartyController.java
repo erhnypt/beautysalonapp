@@ -16,11 +16,13 @@ import com.beautysalonapp.modules.party.web.PartyDtos.PartyDetail;
 import com.beautysalonapp.modules.party.web.PartyDtos.PartyRow;
 import com.beautysalonapp.modules.party.web.PartyDtos.StatementLine;
 import com.beautysalonapp.modules.party.web.PartyDtos.UpdatePartyRequest;
+import com.beautysalonapp.security.application.UserService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,11 +43,14 @@ public class PartyController {
     private final PartyService partyService;
     private final PartyLedger ledger;
     private final PartyReportService reports;
+    private final UserService userService;
 
-    public PartyController(PartyService partyService, PartyLedger ledger, PartyReportService reports) {
+    public PartyController(PartyService partyService, PartyLedger ledger, PartyReportService reports,
+                           UserService userService) {
         this.partyService = partyService;
         this.ledger = ledger;
         this.reports = reports;
+        this.userService = userService;
     }
 
     @GetMapping
@@ -136,15 +141,17 @@ public class PartyController {
     @PreAuthorize("hasAuthority('PARTY_REPORT')")
     public List<PartyReportService.AgingRow> aging(
             @RequestParam(defaultValue = "NORMAL") AccountKind kind,
-            @RequestParam(required = false) Long branchId) {
-        return reports.aging(kind, branchId);
+            @RequestParam(required = false) Long branchId,
+            Authentication auth) {
+        return reports.aging(kind, userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 
     @GetMapping("/reports/birthdays")
     @PreAuthorize("hasAuthority('PARTY_REPORT')")
     public List<PartyReportService.BirthdayRow> birthdays(
             @RequestParam(defaultValue = "30") int withinDays,
-            @RequestParam(required = false) Long branchId) {
-        return reports.birthdays(withinDays, branchId);
+            @RequestParam(required = false) Long branchId,
+            Authentication auth) {
+        return reports.birthdays(withinDays, userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 }

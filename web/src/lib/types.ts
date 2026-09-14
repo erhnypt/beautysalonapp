@@ -43,6 +43,8 @@ export interface UserView {
   mustChangePassword: boolean;
   roles: RoleName[];
   lastLoginAt: string | null;
+  /** Boş = kısıtlama yok (her şubede çalışabilir). Doluysa yalnızca bu şubeler (§B5). */
+  assignedBranchIds: number[];
 }
 
 export interface SettingView {

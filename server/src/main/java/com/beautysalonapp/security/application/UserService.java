@@ -3,6 +3,7 @@ package com.beautysalonapp.security.application;
 import com.beautysalonapp.audit.application.AuditService;
 import com.beautysalonapp.core.error.BusinessRuleException;
 import com.beautysalonapp.core.error.NotFoundException;
+import com.beautysalonapp.modules.branch.application.BranchPort;
 import com.beautysalonapp.security.domain.AppUser;
 import com.beautysalonapp.security.domain.Permission;
 import com.beautysalonapp.security.domain.Role;
@@ -10,11 +11,13 @@ import com.beautysalonapp.security.domain.RoleName;
 import com.beautysalonapp.security.domain.RolePermissionCatalog;
 import com.beautysalonapp.security.infrastructure.AppUserRepository;
 import com.beautysalonapp.security.infrastructure.RoleRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,13 +35,15 @@ public class UserService {
     private final RoleRepository roles;
     private final PasswordEncoder passwordEncoder;
     private final AuditService audit;
+    private final BranchPort branches;
 
     public UserService(AppUserRepository users, RoleRepository roles, PasswordEncoder passwordEncoder,
-                       AuditService audit) {
+                       AuditService audit, BranchPort branches) {
         this.users = users;
         this.roles = roles;
         this.passwordEncoder = passwordEncoder;
         this.audit = audit;
+        this.branches = branches;
     }
 
     @Transactional(readOnly = true)
@@ -133,6 +138,54 @@ public class UserService {
         u.setMustChangePassword(true);
         u.setFailedLoginCount(0);
         u.setLockedUntil(null);
+    }
+
+    // --- Şube ataması (güvenlik gözden geçirme B5) ------------------------
+
+    /**
+     * Kullanıcıyı belirli şube(ler)e kısıtlar. Boş küme = kısıtlama kaldırılır (kullanıcı
+     * her şubede çalışabilir — v1/eski davranış).
+     */
+    public AppUser assignBranches(Long id, Set<Long> branchIds) {
+        AppUser u = get(id);
+        Set<Long> clean = branchIds == null ? Set.of() : branchIds;
+        for (Long branchId : clean) {
+            if (branchId == null || !branches.exists(branchId)) {
+                throw new BusinessRuleException("invalid_branch", "Geçersiz şube: " + branchId);
+            }
+        }
+        u.setAssignedBranchIds(new HashSet<>(clean));
+        audit.record("USER_BRANCHES", "AppUser", u.getId(),
+                "Şube ataması güncellendi: " + u.getUsername() + " → "
+                        + (clean.isEmpty() ? "(kısıtlama yok)" : clean));
+        return u;
+    }
+
+    /** Boş küme = kısıtlama yok (her şubede çalışabilir). */
+    @Transactional(readOnly = true)
+    public Set<Long> assignedBranches(String username) {
+        return users.findByUsernameIgnoreCase(username).map(AppUser::getAssignedBranchIds).orElse(Set.of());
+    }
+
+    /**
+     * Şube parametresi alan rapor/uç noktalarda ortak kapı (§B5). Kısıtlanmamış kullanıcı
+     * için isteneni aynen döner (davranış değişmez). Kısıtlanmış kullanıcı için: parametre
+     * verilmemişse atanmış şubelerden biri (en küçük id) varsayılan olur; verilmişse
+     * atanmış kümede değilse {@link AccessDeniedException} (→ 403) fırlatılır.
+     */
+    @Transactional(readOnly = true)
+    public Long resolveRequestedBranch(String username, Long requestedBranchId) {
+        Set<Long> allowed = assignedBranches(username);
+        if (allowed.isEmpty()) {
+            return requestedBranchId;
+        }
+        if (requestedBranchId == null) {
+            return allowed.stream().min(Long::compareTo).orElse(null);
+        }
+        if (!allowed.contains(requestedBranchId)) {
+            throw new AccessDeniedException("Bu şubeye erişim yetkiniz yok: " + requestedBranchId);
+        }
+        return requestedBranchId;
     }
 
     // --- PIN (2. faktör, güvenlik gözden geçirme A7) --------------------

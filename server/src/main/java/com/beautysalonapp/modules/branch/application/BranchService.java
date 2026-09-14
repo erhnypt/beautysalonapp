@@ -21,7 +21,7 @@ import java.util.List;
  */
 @Service
 @Transactional
-public class BranchService {
+public class BranchService implements BranchPort {
 
     private final BranchRepository branches;
     private final AuditService audit;
@@ -44,6 +44,12 @@ public class BranchService {
     public Branch get(long id) {
         return branches.findById(id).filter(b -> !b.isDeleted())
                 .orElseThrow(() -> new NotFoundException("Şube", id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean exists(long branchId) {
+        return branches.findById(branchId).filter(b -> !b.isDeleted()).isPresent();
     }
 
     public Branch create(String code, String title, String taxId, String address, String phone) {

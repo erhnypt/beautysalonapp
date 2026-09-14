@@ -1,7 +1,9 @@
 package com.beautysalonapp.security.domain;
 
 import com.beautysalonapp.core.domain.BaseEntity;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -53,6 +55,19 @@ public class AppUser extends BaseEntity {
     @Column(name = "pin_locked_until")
     private Instant pinLockedUntil;
 
+    /**
+     * Kısıtlı olduğu şubeler (güvenlik gözden geçirme B5). <b>Boş = kısıtlama yok</b> —
+     * kullanıcı her şubede çalışabilir (v1/eski davranış). Doldurulursa yalnızca bu
+     * şubelerde {@code X-Branch-Id} kabul edilir ve şube parametreli raporlar bu kümeyle
+     * sınırlanır (bkz. {@code BranchContextFilter}, {@code UserService.resolveRequestedBranch}).
+     * Bilerek {@code Branch} varlığına değil ham id'ye referans verir — {@code security}
+     * modülü {@code modules.branch}'e entity düzeyinde bağımlı olmasın (CLAUDE.md #5).
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_branch", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "branch_id", nullable = false)
+    private Set<Long> assignedBranchIds = new HashSet<>();
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_role",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -98,6 +113,8 @@ public class AppUser extends BaseEntity {
     public void setPinFailedCount(int pinFailedCount) { this.pinFailedCount = pinFailedCount; }
     public Instant getPinLockedUntil() { return pinLockedUntil; }
     public void setPinLockedUntil(Instant pinLockedUntil) { this.pinLockedUntil = pinLockedUntil; }
+    public Set<Long> getAssignedBranchIds() { return assignedBranchIds; }
+    public void setAssignedBranchIds(Set<Long> assignedBranchIds) { this.assignedBranchIds = assignedBranchIds; }
     public Set<Role> getRoles() { return roles; }
     public void setRoles(Set<Role> roles) { this.roles = roles; }
 }

@@ -2,9 +2,11 @@ package com.beautysalonapp.modules.branch.web;
 
 import com.beautysalonapp.modules.branch.application.BranchService;
 import com.beautysalonapp.modules.branch.domain.Branch;
+import com.beautysalonapp.security.application.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Şube tanımlama (§9.1, Faz 8 "merkezi işletme" şeması). Kapsam: docs/adr/0006-merkezi-sube.md.
@@ -22,16 +25,20 @@ import java.util.List;
  * <p>{@link #list()} her kimliği doğrulanmış kullanıcı için açıktır — arayüzdeki şube seçici
  * (BranchSwitcher) tüm rollerde göründüğünden (KASIYER/PERSONEL dahil), listelemeyi
  * SETTINGS_VIEW'e bağlamak o rollerin aktif şubelerini hiç görememesine yol açar. Değiştirme
- * işlemleri (create/update/headquarters/delete) SETTINGS_EDIT ile ayrıca korunur.
+ * işlemleri (create/update/headquarters/delete) SETTINGS_EDIT ile ayrıca korunur. Kullanıcı
+ * belirli şube(ler)e kısıtlanmışsa (§B5) liste bu kümeyle sınırlanır — böylece şube seçici
+ * kısıtlı kullanıcıya erişemediği şubeleri hiç göstermez.
  */
 @RestController
 @RequestMapping("/api/v1/branches")
 public class BranchController {
 
     private final BranchService service;
+    private final UserService userService;
 
-    public BranchController(BranchService service) {
+    public BranchController(BranchService service, UserService userService) {
         this.service = service;
+        this.userService = userService;
     }
 
     public record BranchView(long id, String code, String title, String taxId, String address,
@@ -46,8 +53,12 @@ public class BranchController {
     }
 
     @GetMapping
-    public List<BranchView> list() {
-        return service.list().stream().map(BranchView::of).toList();
+    public List<BranchView> list(Authentication auth) {
+        Set<Long> allowed = auth == null ? Set.of() : userService.assignedBranches(auth.getName());
+        return service.list().stream()
+                .filter(b -> allowed.isEmpty() || allowed.contains(b.getId()))
+                .map(BranchView::of)
+                .toList();
     }
 
     @PostMapping

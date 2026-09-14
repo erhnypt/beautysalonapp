@@ -1,6 +1,7 @@
 package com.beautysalonapp.security;
 
 import com.beautysalonapp.core.error.BusinessRuleException;
+import com.beautysalonapp.modules.branch.application.BranchService;
 import com.beautysalonapp.security.application.UserService;
 import com.beautysalonapp.security.domain.Permission;
 import com.beautysalonapp.security.domain.Role;
@@ -9,6 +10,7 @@ import com.beautysalonapp.security.domain.RolePermissionCatalog;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.EnumSet;
 import java.util.Set;
@@ -20,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class UserServiceTest {
 
     @Autowired UserService users;
+    @Autowired BranchService branches;
 
     private Role role(RoleName name) {
         return this.users.listRoles().stream().filter(r -> r.getName() == name).findFirst().orElseThrow();
@@ -120,5 +123,55 @@ class UserServiceTest {
         users.clearPin(u.getId());
 
         assertThat(users.get(u.getId()).getPinHash()).isNull();
+    }
+
+    // --- Şube ataması (§B5) ------------------------------------------
+
+    private long freshBranch() {
+        var b = branches.create("UST" + Long.toString(System.nanoTime(), 36).toUpperCase(),
+                "Test Şube", null, null, null);
+        return b.getId();
+    }
+
+    @Test
+    void bos_atama_kisitlama_yok() {
+        var u = users.create("branch.free." + System.nanoTime(), "Serbest", "gecici123!", Set.of(RoleName.KASIYER));
+
+        assertThat(users.assignedBranches(u.getUsername())).isEmpty();
+        assertThat(users.resolveRequestedBranch(u.getUsername(), null)).isNull();
+        assertThat(users.resolveRequestedBranch(u.getUsername(), freshBranch())).isNotNull();
+    }
+
+    @Test
+    void gecersiz_subeye_atama_reddedilir() {
+        var u = users.create("branch.bad." + System.nanoTime(), "Kötü Şube", "gecici123!", Set.of(RoleName.KASIYER));
+        assertThatThrownBy(() -> users.assignBranches(u.getId(), Set.of(999_999L)))
+                .isInstanceOf(BusinessRuleException.class);
+    }
+
+    @Test
+    void kisitli_kullanici_yalnizca_atanmis_subeye_erisir() {
+        var u = users.create("branch.rest." + System.nanoTime(), "Kısıtlı", "gecici123!", Set.of(RoleName.KASIYER));
+        long allowedBranch = 1L;
+        long otherBranch = freshBranch();
+
+        users.assignBranches(u.getId(), Set.of(allowedBranch));
+
+        assertThat(users.resolveRequestedBranch(u.getUsername(), allowedBranch)).isEqualTo(allowedBranch);
+        assertThat(users.resolveRequestedBranch(u.getUsername(), null)).isEqualTo(allowedBranch);
+        assertThatThrownBy(() -> users.resolveRequestedBranch(u.getUsername(), otherBranch))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void atama_bosaltilinca_kisitlama_kalkar() {
+        var u = users.create("branch.clear." + System.nanoTime(), "Kısıtlama Kalksın", "gecici123!",
+                Set.of(RoleName.KASIYER));
+        users.assignBranches(u.getId(), Set.of(1L));
+        assertThat(users.assignedBranches(u.getUsername())).isNotEmpty();
+
+        users.assignBranches(u.getId(), Set.of());
+
+        assertThat(users.assignedBranches(u.getUsername())).isEmpty();
     }
 }

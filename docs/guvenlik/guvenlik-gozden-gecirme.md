@@ -32,7 +32,7 @@
 | B2 | Tüm `/api/**` kimlik doğrulaması ister | ✅ | `authorizeHttpRequests` — `permitAll` yalnızca auth/health/docs/statik |
 | B3 | Son etkin yönetici korunur | ✅ | `UserService.setEnabled` → `last_admin` kuralı |
 | B4 | Yetki kontrolü controller değil servis katmanında | ✅ | Metot güvenliği + ince controller kuralı (CLAUDE.md) |
-| B5 | IDOR (nesne düzeyi yetki) | ⚠️ | Tek işletme / `branch_id=1` sabit; çok şubeli senaryoda (v2) `branch_id` filtresi zorunlu olacak. Şimdilik kabul. |
+| B5 | IDOR (nesne düzeyi yetki) | ✅ (2026-09-14, kısmi) | `docs/adr/0009-kullanici-sube-atamasi.md` — kullanıcı-şube ataması eklendi (boş atama = kısıtlama yok, hiçbir mevcut kurulumun davranışı değişmedi). `BranchContextFilter` artık `X-Branch-Id`'yi kullanıcının atamasına göre reddedebiliyor (403); `UserService.resolveRequestedBranch` aynı kontrolü açık `branchId` parametresi alan 9 rapor uç noktasında da zorluyor. **Kapsam dışı kalan:** genel liste uç noktaları (cari/stok/fatura/randevu listeleri) hâlâ hiçbir şube filtresi uygulamıyor — bu, ayrı bir modül-modül repository refactoru gerektiriyor (ADR 0009 §"kapsam dışı"). Test: `UserBranchAssignmentTest`, `UserServiceTest`. |
 | B6 | Swagger UI üretimde açık | ⚠️ | `/swagger-ui/**` `permitAll`. Yerel bağlı (127.0.0.1) olduğu için düşük risk. **Öneri:** `packaged` profilinde `springdoc.swagger-ui.enabled=false`. |
 | B7 | Her uç noktada yetki kontrolü | ✅ (düzeltildi) | `GET /api/v1/dashboard/today` Faz 5'ten beri sınıf/metot düzeyinde `@PreAuthorize` olmadan yalnızca kimlik doğrulamalıydı; her rol (PERSONEL dâhil) günlük ciro/tahsilat/gider/ödeme dağılımını okuyabiliyordu. `/end-of-day` ile aynı `REPORTING_VIEW` yetkisine bağlandı; SPA `DashboardPage` yetkisiz kullanıcıya mali kartları göstermeyip bilgi panosu döndürür. Regresyon: `DashboardApiTest` (401/403/200). |
 
@@ -141,9 +141,11 @@
 - G5: `PackagedLicenseKeyGuard` — `packaged` profilinde gömülü key yoksa açılış durur (`PackagedLicenseKeyGuardTest`).
 - F5: doğrulandı (NoOp sağlayıcılar maskeli; tam gövde yalnızca DEBUG).
 
-**Kod (hâlâ açık, izlenmeli):**
-- A7: kritik rollerde 2. faktör (PIN) — şema hazır (`app_user.pin_hash`), akış yok. Yerel tek-işletme için kabul; ayrı özellik kapsamı.
-- B5: nesne düzeyi yetki / şube filtresi — çok şubeli senaryoda (v2) zorunlu. `dashboard/today` hâlâ serbest `branchId` alıyor.
+**2026-09-14 güvenlik geçişinde kapatıldı:**
+- A7: kritik rollerde 2. faktör (PIN) — parola sonrası PIN kurulum/doğrulama akışı (`PinAuthTest`, `PinPolicyTest`).
+- B5 (kısmi): kullanıcı-şube ataması — `docs/adr/0009-kullanici-sube-atamasi.md` (`UserBranchAssignmentTest`). Genel liste uç noktalarının şube filtresi hâlâ ayrı bir iş (ADR 0009 kapsam dışı bölümü).
+- KVKK aydınlatma/açık rıza metin taslakları eklendi (`docs/hukuk/`) — avukat onayı hâlâ gerekli, kod dışı.
+- Sertifika/pentest/ACL: kod asistanının tamamlayamayacağı kalemler için durum netleştirildi (aşağıdaki liste, I3/I1/I2 notları).
 
 **Kod dışı (operasyon / tedarik):**
 6. Apple + Windows imzalama sertifikaları (I3) — **Faz 1'de sipariş edilmeliydi**

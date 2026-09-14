@@ -3,6 +3,7 @@ package com.beautysalonapp.modules.branch.web;
 import com.beautysalonapp.core.context.BranchContextHolder;
 import com.beautysalonapp.core.error.ApiError;
 import com.beautysalonapp.modules.branch.infrastructure.BranchRepository;
+import com.beautysalonapp.security.application.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -11,6 +12,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -42,10 +45,12 @@ public class BranchContextFilter extends OncePerRequestFilter {
     );
 
     private final BranchRepository branches;
+    private final UserService userService;
     private final ObjectMapper objectMapper;
 
-    public BranchContextFilter(BranchRepository branches, ObjectMapper objectMapper) {
+    public BranchContextFilter(BranchRepository branches, UserService userService, ObjectMapper objectMapper) {
         this.branches = branches;
+        this.userService = userService;
         this.objectMapper = objectMapper;
     }
 
@@ -53,10 +58,23 @@ public class BranchContextFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        String header = request.getHeader(HEADER);
         String path = request.getRequestURI();
-        if (header == null || header.isBlank() || !path.startsWith("/api/")
-                || EXEMPT_PREFIXES.stream().anyMatch(path::startsWith)) {
+        if (!path.startsWith("/api/") || EXEMPT_PREFIXES.stream().anyMatch(path::startsWith)) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        String header = request.getHeader(HEADER);
+        Set<Long> allowed = currentUserAllowedBranches();
+
+        if (header == null || header.isBlank()) {
+            if (!allowed.isEmpty()) {
+                // Kısıtlı kullanıcı başlık göndermedi (§B5): sessizce genel varsayılana
+                // (branch 1) düşmek yerine kendi atanmış şubelerinden birini kullan —
+                // aksi halde yeni kayıtları yanlış şubeye etiketleriz (veri bütünlüğü).
+                proceedWithBranch(allowed.stream().min(Long::compareTo).orElseThrow(), request, response, chain);
+                return;
+            }
             chain.doFilter(request, response);
             return;
         }
@@ -65,16 +83,37 @@ public class BranchContextFilter extends OncePerRequestFilter {
         try {
             branchId = Long.valueOf(header.trim());
         } catch (NumberFormatException e) {
-            writeInvalid(response, request.getRequestURI(), "Şube kimliği sayısal olmalı: " + header);
+            writeError(response, request.getRequestURI(), HttpStatus.BAD_REQUEST, "invalid_branch_header",
+                    "Şube kimliği sayısal olmalı: " + header);
             return;
         }
 
         boolean valid = branches.findById(branchId).filter(b -> !b.isDeleted()).isPresent();
         if (!valid) {
-            writeInvalid(response, request.getRequestURI(), "Geçersiz veya silinmiş şube: " + branchId);
+            writeError(response, request.getRequestURI(), HttpStatus.BAD_REQUEST, "invalid_branch_header",
+                    "Geçersiz veya silinmiş şube: " + branchId);
+            return;
+        }
+        if (!allowed.isEmpty() && !allowed.contains(branchId)) {
+            writeError(response, request.getRequestURI(), HttpStatus.FORBIDDEN, "access_denied",
+                    "Bu şubeye erişim yetkiniz yok: " + branchId);
             return;
         }
 
+        proceedWithBranch(branchId, request, response, chain);
+    }
+
+    /** Kimliği doğrulanmamış istekler için boş küme (kısıtlama yok) — 401/403 yetkilendirme aşamasında verilir. */
+    private Set<Long> currentUserAllowedBranches() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
+            return Set.of();
+        }
+        return userService.assignedBranches(auth.getName());
+    }
+
+    private void proceedWithBranch(Long branchId, HttpServletRequest request, HttpServletResponse response,
+                                   FilterChain chain) throws ServletException, IOException {
         try {
             BranchContextHolder.set(branchId);
             chain.doFilter(request, response);
@@ -83,11 +122,12 @@ public class BranchContextFilter extends OncePerRequestFilter {
         }
     }
 
-    private void writeInvalid(HttpServletResponse response, String path, String message) throws IOException {
-        response.setStatus(HttpStatus.BAD_REQUEST.value());
+    private void writeError(HttpServletResponse response, String path, HttpStatus status, String code,
+                            String message) throws IOException {
+        response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        ApiError body = ApiError.of(HttpStatus.BAD_REQUEST.value(), "invalid_branch_header", message, path);
+        ApiError body = ApiError.of(status.value(), code, message, path);
         objectMapper.writeValue(response.getWriter(), body);
     }
 }

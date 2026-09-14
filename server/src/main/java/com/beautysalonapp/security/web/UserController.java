@@ -31,12 +31,13 @@ public class UserController {
     }
 
     public record UserView(Long id, String username, String fullName, boolean enabled,
-                           boolean mustChangePassword, Set<RoleName> roles, Instant lastLoginAt) {
+                           boolean mustChangePassword, Set<RoleName> roles, Instant lastLoginAt,
+                           Set<Long> assignedBranchIds) {
         static UserView of(AppUser u) {
             return new UserView(u.getId(), u.getUsername(), u.getFullName(), u.isEnabled(),
                     u.isMustChangePassword(),
                     u.getRoles().stream().map(r -> r.getName()).collect(java.util.stream.Collectors.toSet()),
-                    u.getLastLoginAt());
+                    u.getLastLoginAt(), u.getAssignedBranchIds());
         }
     }
 
@@ -51,6 +52,10 @@ public class UserController {
     }
 
     public record SetEnabledRequest(boolean enabled) {
+    }
+
+    /** Boş/eksik küme = kısıtlama kaldırılır (§B5). */
+    public record AssignBranchesRequest(Set<Long> branchIds) {
     }
 
     @GetMapping
@@ -73,6 +78,13 @@ public class UserController {
     @PreAuthorize("hasAuthority('USER_EDIT')")
     public UserView updateRoles(@PathVariable Long id, @Valid @RequestBody UpdateRolesRequest req) {
         return UserView.of(userService.updateRoles(id, req.roles()));
+    }
+
+    /** Kullanıcıyı belirli şube(ler)e kısıtlar; boş küme kısıtlamayı kaldırır (§B5). */
+    @PutMapping("/{id}/branches")
+    @PreAuthorize("hasAuthority('USER_EDIT')")
+    public UserView assignBranches(@PathVariable Long id, @RequestBody AssignBranchesRequest req) {
+        return UserView.of(userService.assignBranches(id, req.branchIds()));
     }
 
     @PutMapping("/{id}/enabled")

@@ -28,10 +28,12 @@ import com.beautysalonapp.modules.stock.web.StockDtos.UnitView;
 import com.beautysalonapp.modules.stock.web.StockDtos.UpdatePricesRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.UpdateReorderLevelRequest;
 import com.beautysalonapp.modules.stock.web.StockDtos.WarehouseView;
+import com.beautysalonapp.security.application.UserService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -55,13 +57,15 @@ public class StockController {
     private final StockPort stockPort;
     private final UnitRepository unitRepo;
     private final StockReportService reports;
+    private final UserService userService;
 
     public StockController(StockService stock, StockPort stockPort, UnitRepository unitRepo,
-                           StockReportService reports) {
+                           StockReportService reports, UserService userService) {
         this.stock = stock;
         this.stockPort = stockPort;
         this.unitRepo = unitRepo;
         this.reports = reports;
+        this.userService = userService;
     }
 
     // --- birim / depo ---
@@ -193,8 +197,8 @@ public class StockController {
     @PreAuthorize("hasAuthority('STOCK_REPORT')")
     public List<StockReportService.StockStatusRow> stockStatus(
             @RequestParam(required = false) Long warehouseId,
-            @RequestParam(required = false) Long branchId) {
-        return reports.stockStatus(warehouseId, branchId);
+            @RequestParam(required = false) Long branchId, Authentication auth) {
+        return reports.stockStatus(warehouseId, userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 
     @GetMapping("/reports/movements")
@@ -204,45 +208,46 @@ public class StockController {
             @RequestParam(required = false) LocalDate to,
             @RequestParam(required = false) Long itemId,
             @RequestParam(required = false) Long warehouseId,
-            @RequestParam(required = false) Long branchId) {
-        return reports.movements(from, to, itemId, warehouseId, branchId);
+            @RequestParam(required = false) Long branchId, Authentication auth) {
+        return reports.movements(from, to, itemId, warehouseId,
+                userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 
     @GetMapping("/reports/critical-stock")
     @PreAuthorize("hasAuthority('STOCK_REPORT')")
     public List<StockReportService.CriticalStockRow> criticalStock(
-            @RequestParam(required = false) Long branchId) {
-        return reports.criticalStock(branchId);
+            @RequestParam(required = false) Long branchId, Authentication auth) {
+        return reports.criticalStock(userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 
     @GetMapping("/reports/turnover")
     @PreAuthorize("hasAuthority('STOCK_REPORT')")
     public List<StockReportService.TurnoverRow> turnover(
             @RequestParam LocalDate from, @RequestParam LocalDate to,
-            @RequestParam(required = false) Long branchId) {
-        return reports.turnover(from, to, branchId);
+            @RequestParam(required = false) Long branchId, Authentication auth) {
+        return reports.turnover(from, to, userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 
     @GetMapping("/reports/dead-stock")
     @PreAuthorize("hasAuthority('STOCK_REPORT')")
     public List<StockReportService.DeadStockRow> deadStock(
             @RequestParam(defaultValue = "90") int idleDays,
-            @RequestParam(required = false) Long branchId) {
-        return reports.deadStock(idleDays, branchId);
+            @RequestParam(required = false) Long branchId, Authentication auth) {
+        return reports.deadStock(idleDays, userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 
     @GetMapping("/reports/inventory-value")
     @PreAuthorize("hasAuthority('STOCK_REPORT')")
     public List<StockReportService.InventoryValueRow> inventoryValue(
-            @RequestParam(required = false) Long branchId) {
-        return reports.inventoryValue(branchId);
+            @RequestParam(required = false) Long branchId, Authentication auth) {
+        return reports.inventoryValue(userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 
     @GetMapping("/reports/warehouse-comparison")
     @PreAuthorize("hasAuthority('STOCK_REPORT')")
     public List<StockReportService.WarehouseComparisonRow> warehouseComparison(
-            @RequestParam(required = false) Long branchId) {
-        return reports.warehouseComparison(branchId);
+            @RequestParam(required = false) Long branchId, Authentication auth) {
+        return reports.warehouseComparison(userService.resolveRequestedBranch(auth.getName(), branchId));
     }
 
     private BigDecimal totalOnHand(long itemId) {
