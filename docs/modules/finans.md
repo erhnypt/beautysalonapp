@@ -75,6 +75,7 @@ POST /api/v1/finance/collect             (tahsilat)
 POST /api/v1/finance/pay                 (tediye)
 POST /api/v1/finance/transfer            (virman)
 POST /api/v1/finance/fx                  (döviz alım/satım)
+GET  /api/v1/finance/fx/rate?base=USD    (canlı kur önerisi — aşağı bkz.)
 GET  /api/v1/finance/accounts/{id}/cash-counts    POST .../cash-counts   (kasa sayımı)
 POST /api/v1/finance/transactions/{id}/void
 GET  /api/v1/finance/transactions/{id}/voucher    (dekont PDF)
@@ -84,3 +85,26 @@ GET  /api/v1/finance/reports/budget?from=&to=           (bütçe/gerçekleşen)
 
 ## Raporlar
 Kasa hareket dökümü, kasa bakiyeleri, gelir-gider tablosu (kart bazlı), bütçe/gerçekleşen.
+
+## Canlı döviz kuru (2026-09-10)
+
+Döviz işlemi ekranındaki **Kur** alanı elle girilir; yanındaki **"Canlı kur"** düğmesi
+`GET /api/v1/finance/fx/rate?base=<hesabın para birimi>` çağırıp alanı doldurur. Operatör
+kuru görüp onaylar, işlem yine `POST /fx` ile yapılır — canlı kur **kalıcı değildir**.
+
+- Kaynak: **Yahoo Finance** — `GET https://query1.finance.yahoo.com/v8/finance/chart/<SEMBOL>=X`
+  (`YahooFxRateProvider`). `chart.result[0].meta.regularMarketPrice` okunur, ölçek 6.
+- Giden istek `GuardedRestClient` → `OutboundHttpGuard` allowlist'inden geçer; host
+  `application.yml` `beautysalonapp.outbound.allowlist`'te. **Dışarı hiçbir veri gönderilmez**
+  (sembol URL'de, gövde yok) — CLAUDE.md #1 sınırı korunur.
+- Yetki: `FINANCE_VIEW` (yazma değil).
+- Kapatma: `beautysalonapp.fx.enabled=false` veya `full-offline-mode=true` → uç nokta
+  `422 fx_rate_unavailable` döner, ekran elle girişe düşer.
+- **Uyarı:** Yahoo uç noktası resmî/sözleşmeli bir API değildir; biçim değişir veya
+  erişilemezse `fx_rate_unavailable` döner (elle giriş her zaman çalışır). TRY için resmî
+  kaynak istenirse TCMB `today.xml` bir `FxRateProvider` alternatifi olarak eklenebilir.
+
+### KVKK değerlendirmesi
+Yeni kalıcı alan yok; PII yok. Giden çağrı yalnızca kur sembolü içerir, tek yönlüdür
+(§8.2 tetikleyicilerine girmez). `docs/04-guvenlik-kvkk.md` §9 ve güvenlik gözden
+geçirme §5 E4 güncellendi.

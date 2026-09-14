@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
+import java.util.Map;
 
 /**
  * Uygulamanın dışarıya HTTP çağrısı yapmak için kullanabileceği TEK istemci.
@@ -42,9 +43,14 @@ public class GuardedRestClient {
     }
 
     public <T> T get(String url, Class<T> responseType) {
+        return get(url, Map.of(), responseType);
+    }
+
+    public <T> T get(String url, Map<String, String> headers, Class<T> responseType) {
         guard.check(url);
         return restClient.get()
                 .uri(url)
+                .headers(h -> headers.forEach(h::add))
                 .retrieve()
                 .body(responseType);
     }

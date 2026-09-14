@@ -328,6 +328,20 @@ function FxForm({
   const [description, setDescription] = useState("");
   const [err, setErr] = useState<string | null>(null);
 
+  const fxCurrency = fxAccounts.find((a) => a.id === fxAccountId)?.currency ?? "";
+  const [rateNote, setRateNote] = useState<string | null>(null);
+  const liveRate = useMutation({
+    mutationFn: () =>
+      api<{ symbol: string; rate: number; asOf: string; source: string }>(
+        `/api/v1/finance/fx/rate?base=${encodeURIComponent(fxCurrency)}`,
+      ),
+    onSuccess: (r) => {
+      setRate(String(r.rate));
+      setRateNote(`${r.source} · ${new Date(r.asOf).toLocaleString("tr-TR")}`);
+    },
+    onError: (e) => setRateNote(e instanceof ApiError ? e.message : t.common.error),
+  });
+
   const submit = useMutation({
     mutationFn: () =>
       api("/api/v1/finance/fx", {
@@ -399,8 +413,22 @@ function FxForm({
         <input className="input" value={fxAmount} onChange={(e) => setFxAmount(e.target.value)} />
       </div>
       <div>
-        <label className="label">Kur</label>
+        <div className="flex items-center justify-between">
+          <label className="label">Kur</label>
+          <button
+            type="button"
+            className="btn-ghost px-2 py-0.5 text-xs"
+            disabled={!fxCurrency || liveRate.isPending}
+            onClick={() => {
+              setRateNote(null);
+              liveRate.mutate();
+            }}
+          >
+            {liveRate.isPending ? "Alınıyor…" : "Canlı kur"}
+          </button>
+        </div>
         <input className="input" value={rate} onChange={(e) => setRate(e.target.value)} />
+        {rateNote && <div className="mt-1 text-xs text-slate-400">{rateNote}</div>}
       </div>
       <div className="sm:col-span-2">
         <label className="label">Açıklama</label>
