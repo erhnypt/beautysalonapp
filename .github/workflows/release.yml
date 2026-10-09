@@ -62,7 +62,7 @@ jobs:
           bash packaging/scripts/build-all.sh
 
       - name: Artefaktları yükle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-${{ matrix.os }}
           path: |
