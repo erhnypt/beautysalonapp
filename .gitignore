@@ -53,3 +53,24 @@ web/playwright-report/
 web/blob-report/
 web/.playwright/
 server/target/e2e-data/
+
+# --- push_all ---
+.env
+.env.*
+!.env.example
+.claude.json
+.mcp.json
+.claude/worktrees/
+node_modules/
+.next/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.tsbuildinfo
+test-results/
+playwright-report/
+*.session
+.DS_Store
